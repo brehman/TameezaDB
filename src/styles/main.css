@@ -991,6 +991,35 @@ button {
   font: inherit;
 }
 
+.schedule-page-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.schedule-refresh-button {
+  padding: 8px 14px;
+  border: 1px solid rgba(8, 124, 255, 0.26);
+  border-radius: 999px;
+  background: rgba(8, 124, 255, 0.11);
+  color: #0566d6;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.schedule-refresh-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.schedule-refresh-status {
+  color: var(--secondary-text);
+  font-size: 0.85rem;
+}
+
 .transport-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1145,6 +1174,12 @@ button {
   background: #17283b;
   border-color: rgba(215, 231, 248, 0.2);
   color: var(--primary-text);
+}
+
+:root[data-theme="dark"] .schedule-refresh-button {
+  background: rgba(76, 158, 238, 0.18);
+  border-color: rgba(112, 183, 255, 0.35);
+  color: #b8dcff;
 }
 
 @media (max-width: 1200px) {

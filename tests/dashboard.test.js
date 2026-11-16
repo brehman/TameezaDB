@@ -6,7 +6,7 @@ import { getUpcomingCalendarEvent, getUpcomingCalendarEvents, resolveCurrentSche
 import { getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getPriceColor, getPriceLevel, isCurrentElectricityInterval, normalizeElectricityData, shouldShowTomorrowElectricity } from '../src/services/electricityService.js';
 import { getDepartureMinutesUntil, getSortedDepartures } from '../src/services/transportService.js';
 import { getHourlyForecastFromCurrentHour, getThemeForSunPosition, normalizeWeatherData } from '../src/services/weatherService.js';
-import { expandIcsCalendar } from '../scripts/buildSchedules.js';
+import { buildScheduleCalendar, expandIcsCalendar } from '../src/services/calendarService.js';
 import { parsePorssisahkoHtml } from '../scripts/updateElectricityPrices.js';
 
 const sampleCodes = ['CODE-001', 'CODE-002', 'CODE-003'];
@@ -123,6 +123,16 @@ test('ICS schedules expand weekly events and skip excluded dates', () => {
   assert.equal(result['2026-11-16'][0].start, '09:00');
   assert.equal(result['2026-11-16'][0].end, '10:00');
   assert.equal(result['2026-11-16'][0].location, 'Room 1');
+});
+
+test('manual calendar refresh builds all four schedules and rejects incomplete sources', () => {
+  const source = (name) => `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:${name}\nDTSTART;TZID=Europe/Helsinki:20261116T090000\nDTEND;TZID=Europe/Helsinki:20261116T100000\nSUMMARY:${name} event\nEND:VEVENT\nEND:VCALENDAR`;
+  const calendars = buildScheduleCalendar({ U: source('U'), N: source('N'), S: source('S'), TC: source('TC') }, new Date('2026-11-17T00:00:00Z'));
+
+  assert.deepEqual(Object.keys(calendars), ['U', 'N', 'S', 'TC']);
+  assert.equal(calendars.S['2026-11-16'][0].title, 'S event');
+  assert.equal(calendars.TC['2026-11-16'][0].title, 'TC event');
+  assert.throws(() => buildScheduleCalendar({ U: source('U') }), /Missing N\.ics calendar/);
 });
 
 test('HSL departures are globally sorted and limited per stop', () => {

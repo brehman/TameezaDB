@@ -1,5 +1,6 @@
 import { getDailyCodeForDate } from './services/dailyCodeService.js';
 import { getAveragePrice, getCheapestInterval, getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getMostExpensiveInterval, getPriceLevel, isCurrentElectricityInterval, shouldShowTomorrowElectricity } from './services/electricityService.js';
+import { buildScheduleCalendar } from './services/calendarService.js?v=manual-ics-refresh';
 import { getUpcomingCalendarEvent } from './services/scheduleService.js';
 import { fetchTransportData, getDepartureMinutesUntil, getSortedDepartures } from './services/transportService.js';
 import { fetchWeatherData, getHourlyForecastFromCurrentHour, getThemeForSunPosition, mapWeatherCode } from './services/weatherService.js?v=schedule-four-calendars';
@@ -12,6 +13,7 @@ const state = {
   transport: null,
   schedules: [],
   selectedScheduleDate: '',
+  scheduleRefreshMessage: '',
   dailyCodes: [],
   selectedDailyQuote: '',
   pageOrder: [],
@@ -34,6 +36,32 @@ async function loadSchedules() {
     name,
     days: calendar.children[name] || {},
   }));
+}
+
+async function refreshSchedulesFromIcs() {
+  const button = document.getElementById('schedule-refresh-button');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Reading calendars...';
+  }
+
+  try {
+    const sources = Object.fromEntries(await Promise.all(
+      ['U', 'N', 'S', 'TC'].map(async (name) => {
+        const response = await fetch(`./schedules/${name}.ics`, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Unable to load ${name}.ics (${response.status}).`);
+        return [name, await response.text()];
+      })
+    ));
+    const calendars = buildScheduleCalendar(sources);
+    state.schedules = ['U', 'N', 'S', 'TC'].map((name) => ({ name, days: calendars[name] }));
+    state.scheduleRefreshMessage = `Updated ${formatHHMM(new Date())}`;
+    renderAll();
+  } catch (error) {
+    console.error('Could not refresh ICS schedules; keeping the current schedules.', error);
+    state.scheduleRefreshMessage = 'Refresh failed; current schedules kept';
+    renderAll();
+  }
 }
 
 function getHelsinkiDateKey(date = new Date()) {
@@ -337,7 +365,11 @@ function renderSchedulePage() {
   document.getElementById('schedule-page').innerHTML = `
     <div class="page-header">
       <h2>Schedule</h2>
-      <label class="schedule-date-control">Date <input id="schedule-date" type="date" value="${date}"></label>
+      <div class="schedule-page-controls">
+        <label class="schedule-date-control">Date <input id="schedule-date" type="date" value="${date}"></label>
+        <button id="schedule-refresh-button" class="schedule-refresh-button" type="button">Refresh ICS</button>
+        <span class="schedule-refresh-status" role="status" aria-live="polite">${state.scheduleRefreshMessage}</span>
+      </div>
     </div>
     <div class="timeline-grid">${cards}</div>
   `;
@@ -346,6 +378,7 @@ function renderSchedulePage() {
     state.selectedScheduleDate = event.target.value;
     renderSchedulePage();
   });
+  document.getElementById('schedule-refresh-button').addEventListener('click', refreshSchedulesFromIcs);
 }
 
 function renderTransportPage() {
