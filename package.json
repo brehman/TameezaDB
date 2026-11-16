@@ -6,10 +6,12 @@
   "scripts": {
     "test": "node --test",
     "update:electricity": "node scripts/updateElectricityPrices.js",
+    "build:schedules": "node scripts/buildSchedules.js",
     "start": "python3 -m http.server 8000",
     "serve": "python3 -m http.server 8000"
   },
   "dependencies": {
-    "cheerio": "^1.2.0"
+    "cheerio": "^1.2.0",
+    "ical.js": "^2.2.1"
   }
 }

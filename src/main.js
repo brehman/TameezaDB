@@ -1,9 +1,8 @@
 import { getDailyCodeForDate } from './services/dailyCodeService.js';
 import { getAveragePrice, getCheapestInterval, getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getMostExpensiveInterval, getPriceColor, shouldShowTomorrowElectricity } from './services/electricityService.js';
 import { fetchTransportData, getDepartureMinutesUntil, getSortedDepartures } from './services/transportService.js';
-import { resolveCurrentScheduleState } from './services/scheduleService.js';
 import { fetchWeatherData, mapWeatherCode } from './services/weatherService.js';
-import { formatCountdown, formatDateLong, formatHHMM, formatHHMMSS, formatPrice, getWeekdayKey, parseHHMM } from './utils/time.js';
+import { formatCountdown, formatDateLong, formatHHMM, formatHHMMSS, formatPrice, parseHHMM } from './utils/time.js';
 
 const state = {
   config: null,
@@ -11,6 +10,7 @@ const state = {
   electricity: null,
   transport: null,
   schedules: [],
+  selectedScheduleDate: '',
   dailyCodes: [],
   selectedDailyQuote: '',
   pageOrder: [],
@@ -28,15 +28,23 @@ async function fetchJSON(url, options = {}) {
 }
 
 async function loadSchedules() {
-  const files = ['child1', 'child2', 'child3'];
-  const results = await Promise.all(
-    files.map(async (fileName) => {
-      const payload = await fetchJSON(`./data/schedules/${fileName}.json`);
-      const name = fileName === 'child1' ? 'Ari' : fileName === 'child2' ? 'Mila' : 'Luca';
-      return { name, schedule: payload };
-    })
-  );
-  return results;
+  const calendar = await fetchJSON('./data/schedules/calendar.json');
+  return ['U', 'N', 'S'].map((name) => ({
+    name,
+    days: calendar.children[name] || {},
+  }));
+}
+
+function getHelsinkiDateKey(date = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Helsinki',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+    .filter((part) => part.type !== 'literal')
+    .map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function updateClock() {
@@ -183,17 +191,18 @@ function renderSummaryPage() {
     <div class="transport-departures">${transportHtml || '<p>No upcoming departures available.</p>'}</div>
   `;
 
-  const scheduleCards = state.schedules.map((child, index) => {
-    const weekdayKey = getWeekdayKey(new Date());
-    const resolved = resolveCurrentScheduleState(child.schedule, new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/Helsinki', hour: '2-digit', minute: '2-digit', hour12: false }), weekdayKey);
-    const currentTitle = resolved.current?.title || 'No activity';
-    const nextTitle = resolved.next?.title || '—';
+  const todayKey = getHelsinkiDateKey();
+  const scheduleCards = state.schedules.map((child) => {
+    const events = child.days[todayKey] || [];
+    const firstStart = events[0]?.start || '—';
+    const lastEnd = events.at(-1)?.end || '—';
     return `
       <div class="child-summary">
         <h4>${child.name}</h4>
-        <div class="schedule-status">${resolved.status}</div>
-        <div><strong>Now:</strong> ${currentTitle}</div>
-        <div><strong>Next:</strong> ${nextTitle}</div>
+        <div class="schedule-summary-times">
+          <div><label>Start</label><strong>${firstStart}</strong></div>
+          <div><label>Home by</label><strong>${lastEnd}</strong></div>
+        </div>
       </div>
     `;
   }).join('');
@@ -268,20 +277,21 @@ function renderWeatherPage() {
 }
 
 function renderSchedulePage() {
-  const weekdayKey = getWeekdayKey(new Date());
+  const date = state.selectedScheduleDate || getHelsinkiDateKey();
+  state.selectedScheduleDate = date;
   const cards = state.schedules.map((child) => {
-    const entries = child.schedule[weekdayKey] || [];
+    const entries = child.days[date] || [];
     const lines = entries.map((entry) => `
       <div class="timeline-row">
-        <span>${entry.start}</span>
+        <time>${entry.start}–${entry.end}</time>
         <span>${entry.title}</span>
-        <span>${entry.location || '—'}</span>
+        <span>${entry.location || ''}</span>
       </div>
     `).join('');
     return `
       <div class="timeline-card">
         <h3>${child.name}</h3>
-        ${lines || '<p>No activities found.</p>'}
+        <div class="timeline-events">${lines || '<p>No events scheduled.</p>'}</div>
       </div>
     `;
   }).join('');
@@ -289,10 +299,15 @@ function renderSchedulePage() {
   document.getElementById('schedule-page').innerHTML = `
     <div class="page-header">
       <h2>Family schedule</h2>
-      <p>${weekdayKey[0].toUpperCase() + weekdayKey.slice(1)}</p>
+      <label class="schedule-date-control">Date <input id="schedule-date" type="date" value="${date}"></label>
     </div>
     <div class="timeline-grid">${cards}</div>
   `;
+  document.getElementById('schedule-date').addEventListener('change', (event) => {
+    if (!event.target.value) return;
+    state.selectedScheduleDate = event.target.value;
+    renderSchedulePage();
+  });
 }
 
 function renderTransportPage() {
@@ -432,6 +447,7 @@ function cyclePage(direction) {
 async function initializeDashboard() {
   state.config = await fetchJSON('./config/dashboard.json');
   state.pageOrder = Object.keys(state.config.pages).filter((pageId) => state.config.pages[pageId].enabled);
+  state.selectedScheduleDate = getHelsinkiDateKey();
   state.schedules = await loadSchedules();
   state.weather = await fetchWeatherData(state.config.location.latitude, state.config.location.longitude).catch(() => null);
   state.electricity = await fetchJSON(state.config.electricity.sourceUrl, { cache: 'no-store' }).catch(() => ({ intervals: [] }));

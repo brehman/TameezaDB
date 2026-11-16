@@ -368,6 +368,25 @@ button {
   margin: 0 0 8px;
 }
 
+.schedule-summary-times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.schedule-summary-times label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--secondary-text);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.schedule-summary-times strong {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .schedule-status {
   color: var(--accent);
   font-size: 0.75rem;
@@ -631,6 +650,7 @@ button {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+  height: calc(100% - 58px);
 }
 
 .timeline-card {
@@ -644,13 +664,41 @@ button {
   margin-bottom: 12px;
 }
 
+.timeline-events {
+  max-height: calc(100% - 40px);
+  overflow: auto;
+}
+
 .timeline-row {
   display: grid;
-  grid-template-columns: 70px 1fr 120px;
+  grid-template-columns: 92px minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 8px;
   padding: 8px 0;
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
   font-size: 0.9rem;
+}
+
+.timeline-row time {
+  color: var(--secondary-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.schedule-date-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--secondary-text);
+  font-size: 0.85rem;
+}
+
+.schedule-date-control input {
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+  background: var(--card-background);
+  color: var(--primary-text);
+  font: inherit;
 }
 
 .transport-grid {
@@ -732,6 +780,24 @@ button {
   .weather-header-block {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  #page-schedule.page.active {
+    overflow: auto;
+  }
+
+  #schedule-page {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .timeline-grid {
+    height: auto;
+  }
+
+  .timeline-events {
+    max-height: none;
   }
 
   #page-electricity.page.active {

@@ -5,6 +5,7 @@ import { getDailyCodeForDate, loadCodes } from '../src/services/dailyCodeService
 import { resolveCurrentScheduleState } from '../src/services/scheduleService.js';
 import { getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getPriceColor, normalizeElectricityData, shouldShowTomorrowElectricity } from '../src/services/electricityService.js';
 import { getDepartureMinutesUntil, getSortedDepartures } from '../src/services/transportService.js';
+import { expandIcsCalendar } from '../scripts/buildSchedules.js';
 import { parsePorssisahkoHtml } from '../scripts/updateElectricityPrices.js';
 
 const sampleCodes = ['CODE-001', 'CODE-002', 'CODE-003'];
@@ -31,6 +32,16 @@ test('schedule state identifies the current activity correctly', () => {
   const state = resolveCurrentScheduleState(sampleSchedule, '08:30', 'monday');
   assert.equal(state.current.title, 'School');
   assert.equal(state.status, 'Now');
+});
+
+test('ICS schedules expand weekly events and skip excluded dates', () => {
+  const calendar = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:class\nDTSTART;TZID=Europe/Helsinki:20261116T090000\nDTEND;TZID=Europe/Helsinki:20261116T100000\nRRULE:FREQ=WEEKLY;UNTIL=20261130T100000\nEXDATE;TZID=Europe/Helsinki:20261123T090000\nSUMMARY:Class\nLOCATION:Room 1\nEND:VEVENT\nEND:VCALENDAR`;
+  const result = expandIcsCalendar(calendar, new Date('2026-12-01T00:00:00Z'));
+
+  assert.deepEqual(Object.keys(result).sort(), ['2026-11-16', '2026-11-30']);
+  assert.equal(result['2026-11-16'][0].start, '09:00');
+  assert.equal(result['2026-11-16'][0].end, '10:00');
+  assert.equal(result['2026-11-16'][0].location, 'Room 1');
 });
 
 test('HSL departures are globally sorted and limited per stop', () => {

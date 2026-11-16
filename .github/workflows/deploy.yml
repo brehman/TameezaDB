@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build family schedules
+        run: npm run build:schedules
+
       - name: Refresh electricity prices
         id: electricity
         run: npm run update:electricity
