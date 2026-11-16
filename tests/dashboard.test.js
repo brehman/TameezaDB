@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { getDailyCodeForDate, loadCodes } from '../src/services/dailyCodeService.js';
 import { resolveCurrentScheduleState } from '../src/services/scheduleService.js';
 import { getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getPriceColor, normalizeElectricityData, shouldShowTomorrowElectricity } from '../src/services/electricityService.js';
+import { getDepartureMinutesUntil, getSortedDepartures } from '../src/services/transportService.js';
 import { parsePorssisahkoHtml } from '../scripts/updateElectricityPrices.js';
 
 const sampleCodes = ['CODE-001', 'CODE-002', 'CODE-003'];
@@ -30,6 +31,44 @@ test('schedule state identifies the current activity correctly', () => {
   const state = resolveCurrentScheduleState(sampleSchedule, '08:30', 'monday');
   assert.equal(state.current.title, 'School');
   assert.equal(state.status, 'Now');
+});
+
+test('HSL departures are globally sorted and limited per stop', () => {
+  const now = new Date('2026-11-16T14:00:00Z');
+  const nowSeconds = now.getTime() / 1000;
+  const departures = getSortedDepartures([
+    { key: 'first', departures: [{ timestamp: nowSeconds + 300, route: 'A' }, { timestamp: nowSeconds + 600, route: 'B' }, { timestamp: nowSeconds + 900, route: 'C' }] },
+    { key: 'second', departures: [{ timestamp: nowSeconds + 200, route: 'D' }, { timestamp: nowSeconds + 400, route: 'E' }] },
+  ], 2, now);
+
+  assert.deepEqual(departures.map((item) => item.timestamp), [nowSeconds + 200, nowSeconds + 300, nowSeconds + 400, nowSeconds + 600]);
+});
+
+test('HSL departures respect each stop minimum lead time', () => {
+  const now = new Date('2026-11-16T14:00:00Z');
+  const nowSeconds = now.getTime() / 1000;
+  const routes = [
+    { key: 'kavallinmaki', departures: [{ timestamp: nowSeconds + 6 * 60 }, { timestamp: nowSeconds + 7 * 60 }] },
+    { key: 'viherlaaksonTori', departures: [{ timestamp: nowSeconds + 7 * 60 }] },
+    { key: 'kauniainen', departures: [{ timestamp: nowSeconds + 9 * 60 }, { timestamp: nowSeconds + 10 * 60 }] },
+    { key: 'leppavaara', departures: [{ timestamp: nowSeconds + 14 * 60 }, { timestamp: nowSeconds + 15 * 60 }] },
+  ];
+
+  assert.deepEqual(getSortedDepartures(routes, 2, now).map((departure) => departure.timestamp), [
+    nowSeconds + 7 * 60,
+    nowSeconds + 7 * 60,
+    nowSeconds + 10 * 60,
+    nowSeconds + 15 * 60,
+  ]);
+});
+
+test('departure countdown rounds remaining time up to the next whole minute', () => {
+  const now = new Date('2026-11-16T14:00:00Z');
+  const timestamp = now.getTime() / 1000;
+
+  assert.equal(getDepartureMinutesUntil(timestamp + 60, now), 1);
+  assert.equal(getDepartureMinutesUntil(timestamp + 61, now), 2);
+  assert.equal(getDepartureMinutesUntil(timestamp - 1, now), 0);
 });
 
 test('electricity intervals are normalized and current interval is selected', () => {

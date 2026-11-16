@@ -1,6 +1,6 @@
 import { getDailyCodeForDate } from './services/dailyCodeService.js';
 import { getAveragePrice, getCheapestInterval, getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getMostExpensiveInterval, getPriceColor, shouldShowTomorrowElectricity } from './services/electricityService.js';
-import { fetchTransportData } from './services/transportService.js';
+import { fetchTransportData, getDepartureMinutesUntil, getSortedDepartures } from './services/transportService.js';
 import { resolveCurrentScheduleState } from './services/scheduleService.js';
 import { fetchWeatherData, mapWeatherCode } from './services/weatherService.js';
 import { formatCountdown, formatDateLong, formatHHMM, formatHHMMSS, formatPrice, getWeekdayKey, parseHHMM } from './utils/time.js';
@@ -169,17 +169,18 @@ function renderSummaryPage() {
     ${electricityChart}
   `;
 
-  const transportHtml = (state.transport?.routes || []).slice(0, 2).map((route) => {
-    const items = (route.departures || []).slice(0, 2).map((item) => {
-      const scheduled = item.realtime || item.scheduled;
-      return `<div class="transport-line"><span>${route.label.split(' ')[0] || route.key}</span><span>${scheduled}</span></div>`;
-    }).join('');
-    return `<div class="route-block">${items}</div>`;
+  const now = new Date();
+  const transportDepartures = getSortedDepartures(state.transport?.routes || [], 2, now);
+  const transportHtml = transportDepartures.map((item) => {
+    const departureTime = item.realtime || item.scheduled;
+    const minutesUntil = getDepartureMinutesUntil(item.timestamp, now);
+    const delay = item.delay > 0 ? `+${item.delay}m` : '';
+    return `<div class="transport-departure"><div class="transport-departure-time"><time>${departureTime}</time><span class="transport-countdown">(in ${minutesUntil} Mins)</span></div><strong>${item.route}</strong><span>${item.destination}</span><small>${item.stopName}${delay ? ` · ${delay}` : ''}</small></div>`;
   }).join('');
 
   document.getElementById('summary-transport').innerHTML = `
-    <div class="card-header"><h3>Transport</h3><span class="tag">Live</span></div>
-    ${transportHtml || '<p>No live departures available.</p>'}
+    <div class="card-header"><h3>HSL Departures</h3><span class="tag">${transportDepartures.length ? 'Live' : 'Unavailable'}</span></div>
+    <div class="transport-departures">${transportHtml || '<p>No upcoming departures available.</p>'}</div>
   `;
 
   const scheduleCards = state.schedules.map((child, index) => {

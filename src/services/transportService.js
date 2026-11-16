@@ -1,148 +1,21 @@
-const FALLBACK_DEPARTURES = {
-  kavallinmaki: [
-    { route: '200', destination: 'Helsinki', scheduled: '08:12', realtime: '08:12', delay: 0 },
-    { route: '200', destination: 'Helsinki', scheduled: '08:42', realtime: '08:42', delay: 0 },
-    { route: '200', destination: 'Helsinki', scheduled: '09:12', realtime: '09:14', delay: 2 },
-  ],
-  viherlaaksonTori: [
-    { route: '114', destination: 'Leppävaara', scheduled: '08:15', realtime: '08:15', delay: 0 },
-    { route: '123', destination: 'Leppävaara', scheduled: '08:32', realtime: '08:32', delay: 0 },
-    { route: '106', destination: 'Leppävaara', scheduled: '08:50', realtime: '08:54', delay: 4 },
-  ],
-  kauniainen: [
-    { route: 'I', destination: 'Helsinki', scheduled: '08:24', realtime: '08:24', delay: 0 },
-    { route: 'A', destination: 'Helsinki', scheduled: '08:43', realtime: '08:44', delay: 1 },
-    { route: 'L', destination: 'Helsinki', scheduled: '09:12', realtime: '09:12', delay: 0 },
-  ],
-  leppavaara: [
-    { route: 'I', destination: 'Helsinki', scheduled: '08:17', realtime: '08:17', delay: 0 },
-    { route: 'A', destination: 'Helsinki', scheduled: '08:37', realtime: '08:39', delay: 2 },
-    { route: 'L', destination: 'Helsinki', scheduled: '09:01', realtime: '09:01', delay: 0 },
-  ],
+const HSL_ENDPOINT = 'https://api.digitransit.fi/routing/v2/hsl/gtfs/v1';
+
+const STOP_DEFINITIONS = [
+  { key: 'viherlaaksonTori', label: 'Viherlaaksontori' },
+  { key: 'kavallinmaki', label: 'Kavallinmäki' },
+  { key: 'kauniainen', label: 'Kauniainen' },
+  { key: 'leppavaara', label: 'Leppävaara' },
+];
+
+const MINIMUM_LEAD_MINUTES = {
+  viherlaaksonTori: 7,
+  kavallinmaki: 7,
+  kauniainen: 10,
+  leppavaara: 15,
 };
 
-function buildFallbackTransportData() {
-  return {
-    source: 'Fallback sample data',
-    updatedAt: new Date().toISOString(),
-    routes: [
-      { key: 'kavallinmaki', label: 'Kavallinmäki → Helsinki', departures: FALLBACK_DEPARTURES.kavallinmaki },
-      { key: 'viherlaaksonTori', label: 'Viherlaakson tori → Leppävaara', departures: FALLBACK_DEPARTURES.viherlaaksonTori },
-      { key: 'kauniainen', label: 'Kauniainen → Helsinki', departures: FALLBACK_DEPARTURES.kauniainen },
-      { key: 'leppavaara', label: 'Leppävaara → Helsinki', departures: FALLBACK_DEPARTURES.leppavaara },
-    ],
-  };
-}
-
-async function fetchLiveTransportData(stops = {}) {
-  const stopIds = {
-    kavallinmaki: stops.kavallinmaki || 'HSL:1230101',
-    viherlaaksonTori: stops.viherlaaksonTori || 'HSL:1230202',
-    kauniainen: stops.kauniainen || 'HSL:1230303',
-    leppavaara: stops.leppavaara || 'HSL:1230404',
-  };
-
-  const query = `query {
-    kavallinmaki: stop(id: "${stopIds.kavallinmaki}") {
-      name
-      stoptimesWithoutPatterns(numberOfDepartures: 4, timeRange: 7200) {
-        scheduledDeparture
-        realtimeDeparture
-        realtime
-        delay
-        trip { route { shortName type } tripHeadsign }
-      }
-    }
-    viherlaaksonTori: stop(id: "${stopIds.viherlaaksonTori}") {
-      name
-      stoptimesWithoutPatterns(numberOfDepartures: 4, timeRange: 7200) {
-        scheduledDeparture
-        realtimeDeparture
-        realtime
-        delay
-        trip { route { shortName type } tripHeadsign }
-      }
-    }
-    kauniainen: stop(id: "${stopIds.kauniainen}") {
-      name
-      stoptimesWithoutPatterns(numberOfDepartures: 4, timeRange: 7200) {
-        scheduledDeparture
-        realtimeDeparture
-        realtime
-        delay
-        trip { route { shortName type } tripHeadsign }
-      }
-    }
-    leppavaara: stop(id: "${stopIds.leppavaara}") {
-      name
-      stoptimesWithoutPatterns(numberOfDepartures: 4, timeRange: 7200) {
-        scheduledDeparture
-        realtimeDeparture
-        realtime
-        delay
-        trip { route { shortName type } tripHeadsign }
-      }
-    }
-  }`;
-
-  const response = await fetch('https://api.digitransit.fi/routing/v1/routers/hsl/index/graphql', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({ query }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`HSL API request failed: ${response.status}`);
-  }
-
-  const payload = await response.json();
-  const stopsData = payload.data || {};
-
-  return {
-    source: 'HSL Digitransit',
-    updatedAt: new Date().toISOString(),
-    routes: [
-      { key: 'kavallinmaki', label: 'Kavallinmäki → Helsinki', departures: (stopsData.kavallinmaki?.stoptimesWithoutPatterns || []).map((item) => ({
-        route: item.trip.route.shortName || 'Bus',
-        destination: item.trip.tripHeadsign || 'Helsinki',
-        scheduled: formatDepartureTime(item.scheduledDeparture),
-        realtime: formatDepartureTime(item.realtimeDeparture),
-        delay: Math.max(0, Math.round((item.realtimeDeparture - item.scheduledDeparture) / 60)),
-      })) },
-      { key: 'viherlaaksonTori', label: 'Viherlaakson tori → Leppävaara', departures: (stopsData.viherlaaksonTori?.stoptimesWithoutPatterns || []).map((item) => ({
-        route: item.trip.route.shortName || 'Bus',
-        destination: item.trip.tripHeadsign || 'Leppävaara',
-        scheduled: formatDepartureTime(item.scheduledDeparture),
-        realtime: formatDepartureTime(item.realtimeDeparture),
-        delay: Math.max(0, Math.round((item.realtimeDeparture - item.scheduledDeparture) / 60)),
-      })) },
-      { key: 'kauniainen', label: 'Kauniainen → Helsinki', departures: (stopsData.kauniainen?.stoptimesWithoutPatterns || []).map((item) => ({
-        route: item.trip.route.shortName || 'Train',
-        destination: item.trip.tripHeadsign || 'Helsinki',
-        scheduled: formatDepartureTime(item.scheduledDeparture),
-        realtime: formatDepartureTime(item.realtimeDeparture),
-        delay: Math.max(0, Math.round((item.realtimeDeparture - item.scheduledDeparture) / 60)),
-      })) },
-      { key: 'leppavaara', label: 'Leppävaara → Helsinki', departures: (stopsData.leppavaara?.stoptimesWithoutPatterns || []).map((item) => ({
-        route: item.trip.route.shortName || 'Train',
-        destination: item.trip.tripHeadsign || 'Helsinki',
-        scheduled: formatDepartureTime(item.scheduledDeparture),
-        realtime: formatDepartureTime(item.realtimeDeparture),
-        delay: Math.max(0, Math.round((item.realtimeDeparture - item.scheduledDeparture) / 60)),
-      })) },
-    ],
-  };
-}
-
-function formatDepartureTime(secondsSinceMidnight) {
-  const minutes = Number(secondsSinceMidnight || 0) / 60;
-  const currentDate = new Date();
-  currentDate.setHours(0, 0, 0, 0);
-  currentDate.setMinutes(Math.round(minutes));
-  return currentDate.toLocaleTimeString('en-GB', {
+function formatDepartureTime(timestamp) {
+  return new Date(timestamp * 1000).toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -150,17 +23,107 @@ function formatDepartureTime(secondsSinceMidnight) {
   });
 }
 
+function buildEmptyTransportData(source = 'HSL unavailable') {
+  return {
+    source,
+    updatedAt: new Date().toISOString(),
+    routes: STOP_DEFINITIONS.map(({ key, label }) => ({ key, label, departures: [] })),
+  };
+}
+
+function buildStopQuery(stopIds) {
+  return STOP_DEFINITIONS.map(({ key }) => {
+    const stopId = stopIds[key];
+    if (!stopId) throw new Error(`Missing HSL stop ID for ${key}.`);
+
+    return `${key}: stop(id: "${stopId}") {
+      name
+      stoptimesWithoutPatterns(numberOfDepartures: 12) {
+        serviceDay
+        scheduledDeparture
+        realtimeDeparture
+        realtime
+        pickupType
+        headsign
+        trip { routeShortName }
+      }
+    }`;
+  }).join('\n');
+}
+
+function mapStopDepartures(stop, definition) {
+  const departures = (stop?.stoptimesWithoutPatterns || [])
+    .filter((item) => item.pickupType !== 'NONE')
+    .map((item) => {
+      const scheduledTimestamp = Number(item.serviceDay) + Number(item.scheduledDeparture);
+      const predictedTimestamp = item.realtime && item.realtimeDeparture != null
+        ? Number(item.serviceDay) + Number(item.realtimeDeparture)
+        : scheduledTimestamp;
+
+      return {
+        route: item.trip?.routeShortName || 'Transit',
+        destination: item.headsign || '',
+        stopName: stop.name || definition.label,
+        scheduled: formatDepartureTime(scheduledTimestamp),
+        realtime: item.realtime ? formatDepartureTime(predictedTimestamp) : null,
+        delay: Math.round((predictedTimestamp - scheduledTimestamp) / 60),
+        timestamp: predictedTimestamp,
+      };
+    })
+    .sort((first, second) => first.timestamp - second.timestamp);
+
+  return {
+    key: definition.key,
+    label: stop?.name || definition.label,
+    departures,
+  };
+}
+
+export function getSortedDepartures(routes = [], perStopLimit = 2, currentDate = new Date()) {
+  const nowSeconds = new Date(currentDate).getTime() / 1000;
+
+  return routes
+    .flatMap((route) => route.departures
+      .slice()
+      .filter((departure) => departure.timestamp - nowSeconds >= (MINIMUM_LEAD_MINUTES[route.key] || 0) * 60)
+      .sort((first, second) => first.timestamp - second.timestamp)
+      .slice(0, perStopLimit))
+    .sort((first, second) => first.timestamp - second.timestamp);
+}
+
+export function getDepartureMinutesUntil(timestamp, currentDate = new Date()) {
+  const remainingSeconds = Number(timestamp) - new Date(currentDate).getTime() / 1000;
+  return Math.max(0, Math.ceil(remainingSeconds / 60));
+}
+
 export async function fetchTransportData(config = {}) {
   const transportConfig = config.transport || {};
-  const stopIds = transportConfig.stops || {};
+  const subscriptionKey = transportConfig.subscriptionKey;
+  if (!subscriptionKey) return buildEmptyTransportData();
 
   try {
-    if (!transportConfig.useStaticFallback) {
-      return await fetchLiveTransportData(stopIds);
-    }
-  } catch (error) {
-    console.warn('HSL transport check failed, using fallback data.', error);
-  }
+    const response = await fetch(HSL_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'digitransit-subscription-key': subscriptionKey,
+      },
+      body: JSON.stringify({ query: `{ ${buildStopQuery(transportConfig.stops || {})} }` }),
+    });
 
-  return buildFallbackTransportData();
+    if (!response.ok) throw new Error(`HSL API request failed: ${response.status}`);
+
+    const payload = await response.json();
+    if (payload.errors?.length) throw new Error(payload.errors[0].message);
+
+    return {
+      source: 'HSL Digitransit',
+      updatedAt: new Date().toISOString(),
+      routes: STOP_DEFINITIONS.map((definition) => mapStopDepartures(payload.data?.[definition.key], definition)),
+    };
+  } catch (error) {
+    console.warn('HSL transport request failed.', error);
+    return buildEmptyTransportData();
+  }
 }

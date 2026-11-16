@@ -12,7 +12,7 @@ This project intentionally avoids a traditional backend. The dashboard is design
 - Hosting: GitHub Pages
 - Weather source: Open-Meteo (browser-friendly, no API key, CORS-friendly)
 - Electricity source: hourly prices parsed from Pörssisähkö.net into a local JSON feed by GitHub Actions; suitable for static hosting
-- Public transport source: HSL/Digitransit GraphQL API when stop IDs are configured; fallback sample data otherwise
+- Public transport source: live HSL/Digitransit stop times for Viherlaaksontori, Kavallinmäki, Kauniainen, and Leppävaara
 - Family schedules: local JSON files
 - Daily quote: local text file with deterministic rotation logic
 
@@ -23,7 +23,7 @@ This project intentionally avoids a traditional backend. The dashboard is design
 - It remains simple to maintain and update.
 - It requires no paid hosting.
 
-> Note: HSL stop IDs and any truly sensitive data must be validated or kept local before moving the dashboard to production. The sample stop IDs and family schedule files are placeholders.
+> Note: Family schedule files contain sample data and should be replaced before use.
 
 ## Run locally
 
@@ -65,7 +65,7 @@ The Pages workflow refreshes today's and tomorrow's electricity prices hourly be
 
 ## Privacy warning
 
-The dashboard is static and public by default. Daily quotes and any personal family information stored in GitHub Pages are publicly readable.
+The dashboard is static and public by default. Daily quotes and any personal family information stored in GitHub Pages are publicly readable. The Digitransit subscription key is sent from browser code and is visible to visitors; use a key intended for public client-side use with appropriate quotas, or put the API request behind a server-side proxy. Rotate the key if it was not intended to be public.
 
 If you need confidential schedule details or private wording, keep them on a local-only device or a private local network and disable the public file.
 
@@ -77,6 +77,4 @@ npm test
 
 ## Planned enhancements
 
-- Add a small scheduled feed refresh for electricity via GitHub Actions.
-- Replace placeholder HSL stop IDs with verified production IDs.
 - Add a future local configuration editor for family schedules.

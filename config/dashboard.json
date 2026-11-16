@@ -20,7 +20,7 @@
     "summary": { "enabled": true, "durationSeconds": 60, "label": "Home Summary" },
     "electricity": { "enabled": true, "durationSeconds": 20, "label": "Electricity Details" },
     "schedule": { "enabled": true, "durationSeconds": 30, "label": "Family Schedule" },
-    "transport": { "enabled": true, "durationSeconds": 20, "label": "Public Transport" },
+    "transport": { "enabled": false, "durationSeconds": 20, "label": "Public Transport" },
     "weather": { "enabled": true, "durationSeconds": 20, "label": "Weather Details" },
     "dailyCode": { "enabled": true, "durationSeconds": 15, "label": "Daily Quote" }
   },
@@ -40,12 +40,12 @@
     "hideFromSummary": false
   },
   "transport": {
-    "useStaticFallback": true,
+    "subscriptionKey": "90b312641ab7489c8154c9083819329c",
     "stops": {
-      "kavallinmaki": "HSL:1220102",
-      "viherlaaksonTori": "HSL:1223202",
-      "kauniainen": "HSL:1230106",
-      "leppavaara": "HSL:1230201"
+      "viherlaaksonTori": "HSL:2151208",
+      "kavallinmaki": "HSL:2151204",
+      "kauniainen": "HSL:3010551",
+      "leppavaara": "HSL:2111552"
     }
   },
   "weather": {
