@@ -7,8 +7,8 @@
     "test": "node --test",
     "update:electricity": "node scripts/updateElectricityPrices.js",
     "build:schedules": "node scripts/buildSchedules.js",
-    "start": "python3 -m http.server 8000",
-    "serve": "python3 -m http.server 8000"
+    "start": "npm run build:schedules && python3 -m http.server 8000",
+    "serve": "npm run build:schedules && python3 -m http.server 8000"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

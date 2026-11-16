@@ -1,8 +1,8 @@
 import { getDailyCodeForDate } from './services/dailyCodeService.js';
 import { getAveragePrice, getCheapestInterval, getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getMostExpensiveInterval, getPriceLevel, isCurrentElectricityInterval, shouldShowTomorrowElectricity } from './services/electricityService.js';
-import { getUpcomingCalendarEvent, getUpcomingCalendarEvents } from './services/scheduleService.js';
+import { getUpcomingCalendarEvent } from './services/scheduleService.js';
 import { fetchTransportData, getDepartureMinutesUntil, getSortedDepartures } from './services/transportService.js';
-import { fetchWeatherData, getHourlyForecastFromCurrentHour, getThemeForSunPosition, mapWeatherCode } from './services/weatherService.js?v=forecast-five-hours';
+import { fetchWeatherData, getHourlyForecastFromCurrentHour, getThemeForSunPosition, mapWeatherCode } from './services/weatherService.js?v=schedule-four-calendars';
 import { formatCountdown, formatDateLong, formatHHMM, formatHHMMSS, formatPrice, parseHHMM } from './utils/time.js';
 
 const state = {
@@ -30,7 +30,7 @@ const state = {
 
 async function loadSchedules() {
   const calendar = await fetchJSON('./data/schedules/calendar.json');
-  return ['U', 'N', 'TC'].map((name) => ({
+  return ['U', 'N', 'S', 'TC'].map((name) => ({
     name,
     days: calendar.children[name] || {},
   }));
@@ -318,27 +318,17 @@ function renderSchedulePage() {
   const date = state.selectedScheduleDate || getHelsinkiDateKey();
   state.selectedScheduleDate = date;
   const cards = state.schedules.map((child) => {
-    const isUpcomingCalendar = child.name === 'TC';
-    const entries = isUpcomingCalendar
-      ? getUpcomingCalendarEvents(child.days, new Date(), 8)
-      : child.days[date] || [];
-    const lines = entries.map((entry) => {
-      const dateLabel = isUpcomingCalendar
-        ? new Date(`${entry.date}T12:00:00`).toLocaleDateString('en-GB', { timeZone: 'Europe/Helsinki', weekday: 'short', day: 'numeric', month: 'short' })
-        : '';
-      const timeLabel = `${dateLabel ? `${dateLabel} · ` : ''}${entry.start}–${entry.end}`;
-      return `
+    const entries = child.days[date] || [];
+    const lines = entries.map((entry) => `
       <div class="timeline-row">
-        <time>${timeLabel}</time>
+        <time>${entry.start}–${entry.end}</time>
         <span>${entry.title}</span>
         <span>${entry.location || ''}</span>
       </div>
-    `;
-    }).join('');
+    `).join('');
     return `
-      <div class="timeline-card${isUpcomingCalendar ? ' timeline-card--upcoming' : ''}">
+      <div class="timeline-card">
         <h3>${child.name}</h3>
-        ${isUpcomingCalendar ? '<div class="timeline-subtitle">Upcoming events</div>' : ''}
         <div class="timeline-events">${lines || '<p>No events scheduled.</p>'}</div>
       </div>
     `;

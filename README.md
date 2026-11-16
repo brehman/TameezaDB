@@ -13,7 +13,7 @@ This project intentionally avoids a traditional backend. The dashboard is design
 - Weather source: Open-Meteo (browser-friendly, no API key, CORS-friendly)
 - Electricity source: hourly prices parsed from Pörssisähkö.net into a local JSON feed by GitHub Actions; suitable for static hosting
 - Public transport source: live HSL/Digitransit stop times for Viherlaaksontori, Kavallinmäki, Kauniainen, and Leppävaara
-- Family schedules: U, N, and TC ICS calendars expanded into date-specific JSON during build
+- Family schedules: U, N, S, and TC ICS calendars expanded into date-specific JSON when starting locally and before GitHub Pages deployment
 - Daily quote: local text file with deterministic rotation logic
 
 ### Why this architecture
@@ -54,11 +54,11 @@ Edit `config/dashboard.json` to change:
 ## Data files
 
 - `data/daily-quotes.txt` — one motivational quote per line
-- `schedules/U.ics`, `schedules/N.ics`, and `schedules/TC.ics` — source calendars
+- `schedules/U.ics`, `schedules/N.ics`, `schedules/S.ics`, and `schedules/TC.ics` — source calendars
 - `data/schedules/calendar.json` — generated date-specific schedules; build with `npm run build:schedules`
 - `data/electricity/fi-prices.json` — electricity feed updated from Pörssisähkö.net hourly
 
-The summary shows each child's first calendar start and last scheduled end for today, plus the next upcoming TC event. The Schedule page shows U and N events for the selected date and the next eight TC events in its third column.
+The summary shows each child's first calendar start and last scheduled end for today, plus the next upcoming TC event. The Schedule page shows events for the selected date in four columns: U, N, S, and TC. Schedule JSON is regenerated from the ICS files when starting locally with `npm start` or `npm run serve`, and by the Pages workflow before deployment.
 
 The Pages workflow refreshes today's and tomorrow's electricity prices hourly before deployment. The summary chart always shows today's prices. On the detail page, today's chart remains visible and tomorrow's chart is added at 13:00 Europe/Helsinki when the source has published those prices. The source site does not provide browser CORS access, so the dashboard itself never contacts it directly. If the source is unavailable or its table format changes, the workflow keeps the last working feed and still deploys.
 
