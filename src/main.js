@@ -1,7 +1,8 @@
 import { getDailyCodeForDate } from './services/dailyCodeService.js';
-import { getAveragePrice, getCheapestInterval, getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getMostExpensiveInterval, getPriceColor, shouldShowTomorrowElectricity } from './services/electricityService.js';
+import { getAveragePrice, getCheapestInterval, getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getMostExpensiveInterval, getPriceLevel, isCurrentElectricityInterval, shouldShowTomorrowElectricity } from './services/electricityService.js';
+import { getUpcomingCalendarEvent, getUpcomingCalendarEvents } from './services/scheduleService.js';
 import { fetchTransportData, getDepartureMinutesUntil, getSortedDepartures } from './services/transportService.js';
-import { fetchWeatherData, mapWeatherCode } from './services/weatherService.js';
+import { fetchWeatherData, getHourlyForecastFromCurrentHour, getThemeForSunPosition, mapWeatherCode } from './services/weatherService.js?v=forecast-five-hours';
 import { formatCountdown, formatDateLong, formatHHMM, formatHHMMSS, formatPrice, parseHHMM } from './utils/time.js';
 
 const state = {
@@ -19,7 +20,7 @@ const state = {
   rotationPaused: false,
 };
 
-async function fetchJSON(url, options = {}) {
+    async function fetchJSON(url, options = {}) {
   const response = await fetch(url, options);
   if (!response.ok) {
     throw new Error(`Unable to load ${url}: ${response.status}`);
@@ -29,7 +30,7 @@ async function fetchJSON(url, options = {}) {
 
 async function loadSchedules() {
   const calendar = await fetchJSON('./data/schedules/calendar.json');
-  return ['U', 'N', 'S'].map((name) => ({
+  return ['U', 'N', 'TC'].map((name) => ({
     name,
     days: calendar.children[name] || {},
   }));
@@ -53,6 +54,11 @@ function updateClock() {
   const dateText = formatDateLong(now);
   document.getElementById('header-time').textContent = time;
   document.getElementById('header-date').textContent = dateText;
+  document.documentElement.dataset.theme = getThemeForSunPosition(
+    now,
+    state.weather?.daily?.sunrise,
+    state.weather?.daily?.sunset
+  );
 }
 
 function renderPageNavigation() {
@@ -80,7 +86,7 @@ function renderPages() {
   });
 }
 
-function renderElectricityChart(intervals, compact = false, split = false) {
+function renderElectricityChart(intervals, compact = false, split = false, currentDate = new Date()) {
   const prices = intervals.map((interval) => Number(interval.value)).filter(Number.isFinite);
   const minPrice = prices.length ? Math.min(...prices) : 0;
   const maxPrice = prices.length ? Math.max(...prices) : 0;
@@ -104,7 +110,9 @@ function renderElectricityChart(intervals, compact = false, split = false) {
     const startTime = new Date(interval.start);
     const [hour, minute] = startTime.toLocaleTimeString('en-GB', { timeZone: 'Europe/Helsinki', hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
     const label = minute === '00' ? hour : '';
-    return `<div class="chart-bar-wrap"><div class="chart-bar ${color}" style="height:${height}%"></div><span>${label}</span></div>`;
+    const isCurrent = isCurrentElectricityInterval(interval, currentDate);
+    const currentPrice = isCurrent ? ` data-current-price="${value.toFixed(1)}¢" aria-label="Current price ${value.toFixed(1)} cents per kilowatt-hour"` : '';
+    return `<div class="chart-bar-wrap${isCurrent ? ' is-current-hour' : ''}"${currentPrice}><div class="chart-bar ${color}" style="height:${height}%"></div><span>${label}</span></div>`;
   }).join('');
 
   const chartSize = compact ? ' electricity-chart--compact' : split ? ' electricity-chart--split' : '';
@@ -114,13 +122,19 @@ function renderElectricityChart(intervals, compact = false, split = false) {
 function renderSummaryPage() {
   const weatherSummary = state.weather?.current;
   const currentWeatherCode = weatherSummary?.description || mapWeatherCode(0);
-  const hourlyCards = (state.weather?.hourly || []).slice(0, 6).map((hour) => {
+  const hourlyCards = getHourlyForecastFromCurrentHour(state.weather?.hourly || [], new Date()).map((hour, index) => {
     const label = new Date(hour.time).toLocaleTimeString('en-GB', { timeZone: 'Europe/Helsinki', hour: '2-digit', hour12: false });
     return `
-      <div class="mini-hour-card">
+      <div class="mini-hour-card${index === 0 ? ' current-forecast-hour' : ''}">
         <div>${label}</div>
-        <div class="mini-weather-icon">${hour.description.icon}</div>
-        <div>${Math.round(hour.temperature)}°</div>
+        <div class="mini-weather-condition">
+          <span class="mini-weather-icon">${hour.description.icon}</span>
+          <span class="mini-weather-label">${hour.description.label}</span>
+        </div>
+        <div class="mini-hour-temperatures">
+          <strong>${Math.round(hour.temperature)}°</strong>
+          <small>Feels like ${Math.round(hour.feelsLike ?? hour.temperature)}°</small>
+        </div>
       </div>
     `;
   }).join('');
@@ -131,7 +145,7 @@ function renderSummaryPage() {
   const avgPrice = getAveragePrice(chartIntervals);
   const cheapest = getCheapestInterval(chartIntervals);
   const expensive = getMostExpensiveInterval(chartIntervals);
-  const priceColor = getPriceColor(priceValue, state.config.electricity.lowThreshold, state.config.electricity.highThreshold);
+  const priceLevel = getPriceLevel(priceValue);
 
   const displayPrice = priceValue.toFixed(1);
   const vatMultiplier = 1 + (state.config.electricity.vatPercent || 0) / 100;
@@ -164,7 +178,7 @@ function renderSummaryPage() {
   document.getElementById('summary-electricity').innerHTML = `
     <div class="card-header">
       <h3>Electricity</h3>
-      <span class="tag ${priceColor}">${priceColor}</span>
+      <span class="tag price-level-${priceLevel.replaceAll(' ', '-')}">${priceLevel}</span>
     </div>
     <div class="big-price">${displayPrice} c/kWh</div>
     <div class="subtle-line">Incl. VAT ${priceIncludingVat} c/kWh</div>
@@ -178,12 +192,12 @@ function renderSummaryPage() {
   `;
 
   const now = new Date();
-  const transportDepartures = getSortedDepartures(state.transport?.routes || [], 2, now);
+  const transportDepartures = getSortedDepartures(state.transport?.routes || [], 6, now, 6);
   const transportHtml = transportDepartures.map((item) => {
     const departureTime = item.realtime || item.scheduled;
     const minutesUntil = getDepartureMinutesUntil(item.timestamp, now);
-    const delay = item.delay > 0 ? `+${item.delay}m` : '';
-    return `<div class="transport-departure"><div class="transport-departure-time"><time>${departureTime}</time><span class="transport-countdown">(in ${minutesUntil} Mins)</span></div><strong>${item.route}</strong><span>${item.destination}</span><small>${item.stopName}${delay ? ` · ${delay}` : ''}</small></div>`;
+    const delay = item.delay > 0 ? `<small>+${item.delay} min</small>` : '';
+    return `<div class="transport-departure"><div class="transport-departure-time"><time>${departureTime}</time></div><strong>${item.route}</strong><span class="transport-countdown">(in ${minutesUntil} Mins)</span>${delay}</div>`;
   }).join('');
 
   document.getElementById('summary-transport').innerHTML = `
@@ -201,7 +215,7 @@ function renderSummaryPage() {
         <h4>${child.name}</h4>
         <div class="schedule-summary-times">
           <div><label>Start</label><strong>${firstStart}</strong></div>
-          <div><label>Home by</label><strong>${lastEnd}</strong></div>
+          <div><label>FREE AT</label><strong>${lastEnd}</strong></div>
         </div>
       </div>
     `;
@@ -212,10 +226,18 @@ function renderSummaryPage() {
     <div class="schedule-summary-grid">${scheduleCards}</div>
   `;
 
-  const dailyQuoteValue = state.selectedDailyQuote || 'Keep going. Small steps still move you forward.';
-  document.getElementById('summary-code').innerHTML = `
-    <div class="card-header"><h3>Daily quote</h3></div>
-    <div class="quote-box">${dailyQuoteValue}</div>
+  const tcCalendar = state.schedules.find((child) => child.name === 'TC')?.days || {};
+  const upcomingEvent = getUpcomingCalendarEvent(tcCalendar, new Date());
+  const upcomingDate = upcomingEvent
+    ? new Date(`${upcomingEvent.date}T12:00:00`).toLocaleDateString('en-GB', { timeZone: 'Europe/Helsinki', weekday: 'short', day: 'numeric', month: 'short' })
+    : '';
+  document.getElementById('summary-upcoming-event').innerHTML = `
+    <div class="card-header"><h3>Upcoming event</h3></div>
+    ${upcomingEvent ? `
+      <div class="upcoming-event-date">${upcomingDate} · ${upcomingEvent.start}–${upcomingEvent.end}</div>
+      <div class="upcoming-event-title">${upcomingEvent.title}</div>
+      ${upcomingEvent.location ? `<div class="upcoming-event-location">${upcomingEvent.location}</div>` : ''}
+    ` : '<div class="upcoming-event-title">No upcoming events</div>'}
   `;
 }
 
@@ -250,29 +272,45 @@ function renderElectricityPage() {
 
 function renderWeatherPage() {
   const current = state.weather?.current;
-  const hourly = (state.weather?.hourly || []).slice(0, 12).map((hour) => `
-    <div class="weather-row-item">
-      <div>${new Date(hour.time).toLocaleTimeString('en-GB', { timeZone: 'Europe/Helsinki', hour: '2-digit', hour12: false })}</div>
-      <div>${hour.description.icon}</div>
-      <div>${Math.round(hour.temperature)}°</div>
-      <div>${hour.precipitationProbability ?? 0}%</div>
-    </div>
-  `).join('');
+  const forecast = state.weather?.daily?.forecast || [];
+  const weeklyTiles = forecast.map((day, index) => {
+    const date = new Date(`${day.date}T12:00:00`);
+    const weekday = index === 0 ? 'Today' : date.toLocaleDateString('en-GB', { timeZone: 'Europe/Helsinki', weekday: 'short' });
+    const dateLabel = date.toLocaleDateString('en-GB', { timeZone: 'Europe/Helsinki', day: 'numeric', month: 'short' });
+    return `
+      <article class="weekly-weather-tile">
+        <div class="weekly-weather-day">${weekday}</div>
+        <div class="weekly-weather-date">${dateLabel}</div>
+        <div class="weekly-weather-icon" aria-label="${day.description.label}">${day.description.icon}</div>
+        <div class="weekly-weather-condition">${day.description.label}</div>
+        <div class="weekly-weather-temperatures"><strong>${Math.round(day.temperatureMax)}°</strong><span>${Math.round(day.temperatureMin)}°</span></div>
+      </article>
+    `;
+  }).join('');
+  const quote = state.selectedDailyQuote || 'Keep going. Small steps still move you forward.';
 
   document.getElementById('weather-page').innerHTML = `
     <div class="page-header">
-      <h2>Weather</h2>
-      <p>Viherlaakso, Espoo</p>
+      <h2>Quote & Weather</h2>
+      <p>Viherlaakso, Espoo · 7-day forecast</p>
     </div>
-    <div class="weather-header-block">
-      <div class="weather-large">${Math.round(current?.temperature ?? 0)}°</div>
-      <div>
-        <h3>${current?.description?.label || 'Weather'}</h3>
-        <p>Feels like ${Math.round(current?.feelsLike ?? 0)}° • Wind ${Math.round(current?.wind ?? 0)} km/h</p>
-        <p>Humidity ${Math.round(current?.humidity ?? 0)}% • Precipitation ${Math.round(current?.precipitation ?? 0)} mm</p>
+    <div class="quote-weather-layout">
+      <section class="weather-quote-panel">
+        <div class="code-label">TODAY’S QUOTE</div>
+        <div class="quote-value">${quote}</div>
+      </section>
+      <section class="weekly-weather-panel">
+        <div class="weekly-weather-heading">
+          <div>
+            <h3>Weather this week</h3>
+            <p>${current?.description?.label || 'Forecast'} · ${Math.round(current?.temperature ?? 0)}° now</p>
+          </div>
+          <span class="weather-icon">${current?.description?.icon || '🌤️'}</span>
+        </div>
+        <div class="weekly-weather-grid">${weeklyTiles}</div>
       </div>
+      </section>
     </div>
-    <div class="weather-hourly-grid">${hourly}</div>
   `;
 }
 
@@ -280,17 +318,27 @@ function renderSchedulePage() {
   const date = state.selectedScheduleDate || getHelsinkiDateKey();
   state.selectedScheduleDate = date;
   const cards = state.schedules.map((child) => {
-    const entries = child.days[date] || [];
-    const lines = entries.map((entry) => `
+    const isUpcomingCalendar = child.name === 'TC';
+    const entries = isUpcomingCalendar
+      ? getUpcomingCalendarEvents(child.days, new Date(), 8)
+      : child.days[date] || [];
+    const lines = entries.map((entry) => {
+      const dateLabel = isUpcomingCalendar
+        ? new Date(`${entry.date}T12:00:00`).toLocaleDateString('en-GB', { timeZone: 'Europe/Helsinki', weekday: 'short', day: 'numeric', month: 'short' })
+        : '';
+      const timeLabel = `${dateLabel ? `${dateLabel} · ` : ''}${entry.start}–${entry.end}`;
+      return `
       <div class="timeline-row">
-        <time>${entry.start}–${entry.end}</time>
+        <time>${timeLabel}</time>
         <span>${entry.title}</span>
         <span>${entry.location || ''}</span>
       </div>
-    `).join('');
+    `;
+    }).join('');
     return `
-      <div class="timeline-card">
+      <div class="timeline-card${isUpcomingCalendar ? ' timeline-card--upcoming' : ''}">
         <h3>${child.name}</h3>
+        ${isUpcomingCalendar ? '<div class="timeline-subtitle">Upcoming events</div>' : ''}
         <div class="timeline-events">${lines || '<p>No events scheduled.</p>'}</div>
       </div>
     `;
@@ -298,7 +346,7 @@ function renderSchedulePage() {
 
   document.getElementById('schedule-page').innerHTML = `
     <div class="page-header">
-      <h2>Family schedule</h2>
+      <h2>Schedule</h2>
       <label class="schedule-date-control">Date <input id="schedule-date" type="date" value="${date}"></label>
     </div>
     <div class="timeline-grid">${cards}</div>
@@ -409,14 +457,6 @@ function resetRotationTimer() {
 }
 
 function handleKeydown(event) {
-  const mapping = {
-    ArrowRight: 1,
-    ArrowLeft: -1,
-    Home: 'summary',
-    f: 'fullscreen',
-    ' ': 'toggle-rotation',
-  };
-
   if (event.key === 'ArrowRight') {
     cyclePage(1);
   } else if (event.key === 'ArrowLeft') {
@@ -429,7 +469,6 @@ function handleKeydown(event) {
   } else if (event.key === ' ') {
     event.preventDefault();
     state.rotationPaused = !state.rotationPaused;
-    document.getElementById('rotation-toggle').textContent = state.rotationPaused ? 'Resume' : 'Pause';
     if (!state.rotationPaused) resetRotationTimer();
   }
 }
@@ -457,21 +496,6 @@ async function initializeDashboard() {
   const today = new Date().toISOString().slice(0, 10);
   const dailyConfig = state.config.dailyQuote || state.config.dailyCode || {};
   state.selectedDailyQuote = getDailyCodeForDate(dailyQuotesText, today, dailyConfig.startDate || '2026-11-16');
-
-  document.getElementById('rotation-toggle').addEventListener('click', () => {
-    state.rotationPaused = !state.rotationPaused;
-    document.getElementById('rotation-toggle').textContent = state.rotationPaused ? 'Resume' : 'Pause';
-    if (!state.rotationPaused) resetRotationTimer();
-  });
-
-  document.getElementById('home-btn').addEventListener('click', () => {
-    state.activePage = 'summary';
-    renderAll();
-  });
-
-  document.getElementById('fullscreen-btn').addEventListener('click', () => {
-    document.documentElement.requestFullscreen?.();
-  });
 
   document.addEventListener('keydown', handleKeydown);
   updateClock();

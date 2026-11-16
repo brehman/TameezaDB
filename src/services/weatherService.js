@@ -33,6 +33,32 @@ export function mapWeatherCode(code) {
   return WEATHER_CODES[Number(code)] || { label: 'Weather', icon: '🌤️' };
 }
 
+export function getThemeForSunPosition(currentDate = new Date(), sunrise, sunset) {
+  if (!sunrise || !sunset) return 'light';
+  const now = new Date(currentDate).getTime();
+  const sunriseTime = new Date(sunrise).getTime();
+  const sunsetTime = new Date(sunset).getTime();
+  if (!Number.isFinite(now) || !Number.isFinite(sunriseTime) || !Number.isFinite(sunsetTime)) return 'light';
+  return now < sunriseTime || now >= sunsetTime ? 'dark' : 'light';
+}
+
+export function getHourlyForecastFromCurrentHour(hourly = [], currentDate = new Date(), hoursToShow = 5) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Helsinki',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(currentDate))
+    .filter((part) => part.type !== 'literal')
+    .map((part) => [part.type, part.value]));
+  const currentHourKey = `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:00`;
+  const startIndex = hourly.findIndex((entry) => entry.time >= currentHourKey);
+
+  return startIndex < 0 ? [] : hourly.slice(startIndex, startIndex + hoursToShow);
+}
+
 export function normalizeWeatherData(json) {
   const hourly = json.hourly || {};
   const daily = json.daily || {};
@@ -68,6 +94,13 @@ export function normalizeWeatherData(json) {
       sunset: daily.sunset?.[0],
       sunriseTomorrow: daily.sunrise?.[1],
       sunsetTomorrow: daily.sunset?.[1],
+      forecast: (daily.time || []).map((date, index) => ({
+        date,
+        temperatureMin: daily.temperature_2m_min?.[index],
+        temperatureMax: daily.temperature_2m_max?.[index],
+        weatherCode: daily.weather_code?.[index],
+        description: mapWeatherCode(daily.weather_code?.[index]),
+      })),
     },
     hourly: hourlyData,
     source: 'Open-Meteo',
@@ -75,7 +108,7 @@ export function normalizeWeatherData(json) {
 }
 
 export async function fetchWeatherData(latitude = 60.178, longitude = 24.825) {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,precipitation&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code,windspeed_10m,precipitation&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=Europe%2FHelsinki&forecast_days=3`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,relative_humidity_2m,precipitation&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code,windspeed_10m,precipitation&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=Europe%2FHelsinki&forecast_days=7`;
 
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {

@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { getDailyCodeForDate, loadCodes } from '../src/services/dailyCodeService.js';
-import { resolveCurrentScheduleState } from '../src/services/scheduleService.js';
-import { getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getPriceColor, normalizeElectricityData, shouldShowTomorrowElectricity } from '../src/services/electricityService.js';
+import { getUpcomingCalendarEvent, getUpcomingCalendarEvents, resolveCurrentScheduleState } from '../src/services/scheduleService.js';
+import { getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getPriceColor, getPriceLevel, isCurrentElectricityInterval, normalizeElectricityData, shouldShowTomorrowElectricity } from '../src/services/electricityService.js';
 import { getDepartureMinutesUntil, getSortedDepartures } from '../src/services/transportService.js';
+import { getHourlyForecastFromCurrentHour, getThemeForSunPosition, normalizeWeatherData } from '../src/services/weatherService.js';
 import { expandIcsCalendar } from '../scripts/buildSchedules.js';
 import { parsePorssisahkoHtml } from '../scripts/updateElectricityPrices.js';
 
@@ -34,6 +35,86 @@ test('schedule state identifies the current activity correctly', () => {
   assert.equal(state.status, 'Now');
 });
 
+test('upcoming calendar event selects the next TC event using Helsinki time', () => {
+  const upcoming = getUpcomingCalendarEvent({
+    '2026-11-16': [
+      { start: '08:00', end: '09:00', title: 'Past event' },
+      { start: '18:30', end: '19:00', title: 'Today event' },
+    ],
+    '2026-11-17': [{ start: '07:30', end: '08:00', title: 'Tomorrow event' }],
+  }, '2026-11-16T17:00:00+02:00');
+
+  assert.equal(upcoming.title, 'Today event');
+  assert.equal(upcoming.date, '2026-11-16');
+});
+
+test('upcoming calendar list returns the next TC events in chronological order', () => {
+  const events = getUpcomingCalendarEvents({
+    '2026-11-18': [{ start: '12:00', end: '13:00', title: 'Third' }],
+    '2026-11-17': [{ start: '14:00', end: '15:00', title: 'Second' }, { start: '09:00', end: '10:00', title: 'First' }],
+  }, '2026-11-16T17:00:00+02:00', 2);
+
+  assert.deepEqual(events.map((event) => event.title), ['First', 'Second']);
+});
+
+test('weather normalization exposes a seven-day forecast with daily conditions', () => {
+  const dates = ['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20', '2026-11-21', '2026-11-22'];
+  const weather = normalizeWeatherData({
+    daily: {
+      time: dates,
+      weather_code: [0, 3, 61, 71, 2, 45, 95],
+      temperature_2m_min: [1, 2, 3, 4, 5, 6, 7],
+      temperature_2m_max: [8, 9, 10, 11, 12, 13, 14],
+    },
+  });
+
+  assert.equal(weather.daily.forecast.length, 7);
+  assert.equal(weather.daily.forecast[3].date, '2026-11-19');
+  assert.equal(weather.daily.forecast[3].description.label, 'Slight snow');
+  assert.equal(weather.daily.forecast[3].temperatureMin, 4);
+  assert.equal(weather.daily.forecast[3].temperatureMax, 11);
+});
+
+test('summary hourly forecast starts at the current Helsinki hour and shows five hours', () => {
+  const hourly = [
+    ...Array.from({ length: 24 }, (_, hour) => ({ time: `2026-11-16T${String(hour).padStart(2, '0')}:00` })),
+    ...Array.from({ length: 24 }, (_, hour) => ({ time: `2026-11-17T${String(hour).padStart(2, '0')}:00` })),
+  ];
+  const selected = getHourlyForecastFromCurrentHour(hourly, '2026-11-16T17:42:00+02:00');
+
+  assert.equal(selected.length, 5);
+  assert.deepEqual(selected.map((hour) => hour.time), [
+    '2026-11-16T17:00',
+    '2026-11-16T18:00',
+    '2026-11-16T19:00',
+    '2026-11-16T20:00',
+    '2026-11-16T21:00',
+  ]);
+});
+
+test('summary hourly forecast crosses Helsinki midnight while retaining five hours', () => {
+  const hourly = [
+    ...Array.from({ length: 24 }, (_, hour) => ({ time: `2026-11-16T${String(hour).padStart(2, '0')}:00` })),
+    ...Array.from({ length: 24 }, (_, hour) => ({ time: `2026-11-17T${String(hour).padStart(2, '0')}:00` })),
+  ];
+  const selected = getHourlyForecastFromCurrentHour(hourly, '2026-11-16T22:24:00+02:00');
+
+  assert.equal(selected.length, 5);
+  assert.equal(selected[0].time, '2026-11-16T22:00');
+  assert.equal(selected.at(-1).time, '2026-11-17T02:00');
+});
+
+test('theme switches between dark at night and light during daylight', () => {
+  const sunrise = '2026-11-16T08:00:00+02:00';
+  const sunset = '2026-11-16T16:00:00+02:00';
+
+  assert.equal(getThemeForSunPosition('2026-11-16T07:59:00+02:00', sunrise, sunset), 'dark');
+  assert.equal(getThemeForSunPosition('2026-11-16T08:00:00+02:00', sunrise, sunset), 'light');
+  assert.equal(getThemeForSunPosition('2026-11-16T15:59:00+02:00', sunrise, sunset), 'light');
+  assert.equal(getThemeForSunPosition('2026-11-16T16:00:00+02:00', sunrise, sunset), 'dark');
+  assert.equal(getThemeForSunPosition('2026-11-16T12:00:00+02:00', null, null), 'light');
+});
+
 test('ICS schedules expand weekly events and skip excluded dates', () => {
   const calendar = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:class\nDTSTART;TZID=Europe/Helsinki:20261116T090000\nDTEND;TZID=Europe/Helsinki:20261116T100000\nRRULE:FREQ=WEEKLY;UNTIL=20261130T100000\nEXDATE;TZID=Europe/Helsinki:20261123T090000\nSUMMARY:Class\nLOCATION:Room 1\nEND:VEVENT\nEND:VCALENDAR`;
   const result = expandIcsCalendar(calendar, new Date('2026-12-01T00:00:00Z'));
@@ -53,6 +134,22 @@ test('HSL departures are globally sorted and limited per stop', () => {
   ], 2, now);
 
   assert.deepEqual(departures.map((item) => item.timestamp), [nowSeconds + 200, nowSeconds + 300, nowSeconds + 400, nowSeconds + 600]);
+});
+
+test('HSL departure list can be capped to the six earliest eligible trips overall', () => {
+  const now = new Date('2026-11-16T14:00:00Z');
+  const nowSeconds = now.getTime() / 1000;
+  const routes = Array.from({ length: 4 }, (_, routeIndex) => ({
+    key: `stop${routeIndex}`,
+    departures: Array.from({ length: 4 }, (_, departureIndex) => ({
+      timestamp: nowSeconds + (routeIndex * 4 + departureIndex + 1) * 60,
+      route: `${routeIndex}-${departureIndex}`,
+    })),
+  }));
+
+  const departures = getSortedDepartures(routes, 6, now, 6);
+  assert.equal(departures.length, 6);
+  assert.deepEqual(departures.map((item) => item.timestamp), Array.from({ length: 6 }, (_, index) => nowSeconds + (index + 1) * 60));
 });
 
 test('HSL departures respect each stop minimum lead time', () => {
@@ -93,6 +190,12 @@ test('electricity intervals are normalized and current interval is selected', ()
   assert.equal(getPriceColor(18, 10, 20), 'warning');
 });
 
+test('only the electricity interval containing the current time is highlighted', () => {
+  const currentTime = '2026-11-16T00:18:00+02:00';
+  assert.equal(isCurrentElectricityInterval({ start: '2026-11-16T00:15:00+02:00', end: '2026-11-16T00:30:00+02:00' }, currentTime), true);
+  assert.equal(isCurrentElectricityInterval({ start: '2026-11-16T00:00:00+02:00', end: '2026-11-16T00:15:00+02:00' }, currentTime), false);
+});
+
 test('electricity bars scale with the actual price range so low and high prices do not render at the same height', () => {
   const values = [10.9, 16.1, 25.4];
   const lowest = getElectricityBarHeight(10.9, values);
@@ -115,6 +218,17 @@ test('electricity bar colors follow the configured price bands', () => {
   assert.equal(getElectricityBarColor(25.1), 'dark-red');
   assert.equal(getElectricityBarColor(35), 'dark-red');
   assert.equal(getElectricityBarColor(35.1), 'maroon');
+});
+
+test('electricity summary levels classify prices from extremely low to very high', () => {
+  assert.equal(getPriceLevel(-0.1), 'extremely low');
+  assert.equal(getPriceLevel(0), 'extremely low');
+  assert.equal(getPriceLevel(4.99), 'low');
+  assert.equal(getPriceLevel(5), 'medium');
+  assert.equal(getPriceLevel(15), 'medium');
+  assert.equal(getPriceLevel(15.01), 'high');
+  assert.equal(getPriceLevel(25), 'high');
+  assert.equal(getPriceLevel(25.01), 'very high');
 });
 
 test('electricity source parser reads real hourly table values and handles midnight', () => {

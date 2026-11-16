@@ -79,7 +79,7 @@ function mapStopDepartures(stop, definition) {
   };
 }
 
-export function getSortedDepartures(routes = [], perStopLimit = 2, currentDate = new Date()) {
+export function getSortedDepartures(routes = [], perStopLimit = 2, currentDate = new Date(), totalLimit = Infinity) {
   const nowSeconds = new Date(currentDate).getTime() / 1000;
 
   return routes
@@ -88,7 +88,8 @@ export function getSortedDepartures(routes = [], perStopLimit = 2, currentDate =
       .filter((departure) => departure.timestamp - nowSeconds >= (MINIMUM_LEAD_MINUTES[route.key] || 0) * 60)
       .sort((first, second) => first.timestamp - second.timestamp)
       .slice(0, perStopLimit))
-    .sort((first, second) => first.timestamp - second.timestamp);
+    .sort((first, second) => first.timestamp - second.timestamp)
+    .slice(0, totalLimit);
 }
 
 export function getDepartureMinutesUntil(timestamp, currentDate = new Date()) {

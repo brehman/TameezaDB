@@ -14,6 +14,12 @@ export function getCurrentInterval(intervals = [], currentDate = new Date()) {
   return normalized.find((interval) => now >= interval.start && now < interval.end) || normalized[0] || null;
 }
 
+export function isCurrentElectricityInterval(interval, currentDate = new Date()) {
+  if (!interval?.start || !interval?.end) return false;
+  const now = new Date(currentDate).getTime();
+  return now >= new Date(interval.start).getTime() && now < new Date(interval.end).getTime();
+}
+
 export function shouldShowTomorrowElectricity(electricityData = {}, currentDate = new Date()) {
   const localHour = Number(new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Europe/Helsinki',
@@ -28,6 +34,14 @@ export function getPriceColor(value, lowThreshold = 10, highThreshold = 20) {
   if (value < lowThreshold) return 'success';
   if (value < highThreshold) return 'warning';
   return 'danger';
+}
+
+export function getPriceLevel(value) {
+  if (value <= 0) return 'extremely low';
+  if (value < 5) return 'low';
+  if (value <= 15) return 'medium';
+  if (value <= 25) return 'high';
+  return 'very high';
 }
 
 export function getElectricityBarColor(value) {
