@@ -1,0 +1,15 @@
+{
+  "name": "smart-home-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "update:electricity": "node scripts/updateElectricityPrices.js",
+    "start": "python3 -m http.server 8000",
+    "serve": "python3 -m http.server 8000"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0"
+  }
+}

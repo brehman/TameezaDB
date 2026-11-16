@@ -1,0 +1,40 @@
+{
+  "monday": [
+    { "start": "07:00", "end": "08:00", "title": "Breakfast", "location": "Home" },
+    { "start": "08:00", "end": "14:30", "title": "School", "location": "School" },
+    { "start": "15:00", "end": "16:00", "title": "Homework", "location": "Home" },
+    { "start": "17:30", "end": "18:30", "title": "Dinner", "location": "Home" },
+    { "start": "19:00", "end": "20:00", "title": "Reading", "location": "Bedroom" }
+  ],
+  "tuesday": [
+    { "start": "07:00", "end": "08:00", "title": "Breakfast", "location": "Home" },
+    { "start": "08:00", "end": "14:30", "title": "School", "location": "School" },
+    { "start": "15:15", "end": "16:15", "title": "Homework", "location": "Home" },
+    { "start": "18:00", "end": "19:00", "title": "Dinner", "location": "Home" }
+  ],
+  "wednesday": [
+    { "start": "07:00", "end": "08:00", "title": "Breakfast", "location": "Home" },
+    { "start": "08:00", "end": "14:30", "title": "School", "location": "School" },
+    { "start": "16:00", "end": "17:00", "title": "Club", "location": "Community Hall" }
+  ],
+  "thursday": [
+    { "start": "07:00", "end": "08:00", "title": "Breakfast", "location": "Home" },
+    { "start": "08:00", "end": "14:30", "title": "School", "location": "School" },
+    { "start": "15:00", "end": "16:00", "title": "Homework", "location": "Home" }
+  ],
+  "friday": [
+    { "start": "07:00", "end": "08:00", "title": "Breakfast", "location": "Home" },
+    { "start": "08:00", "end": "13:30", "title": "School", "location": "School" },
+    { "start": "14:00", "end": "15:00", "title": "Free Play", "location": "Home" }
+  ],
+  "saturday": [
+    { "start": "09:00", "end": "10:00", "title": "Breakfast", "location": "Home" },
+    { "start": "11:00", "end": "12:30", "title": "Sports", "location": "Sports Hall" },
+    { "start": "18:00", "end": "19:00", "title": "Dinner", "location": "Home" }
+  ],
+  "sunday": [
+    { "start": "09:30", "end": "10:30", "title": "Breakfast", "location": "Home" },
+    { "start": "12:00", "end": "14:00", "title": "Family Time", "location": "Home" },
+    { "start": "18:00", "end": "19:00", "title": "Dinner", "location": "Home" }
+  ]
+}

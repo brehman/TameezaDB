@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content="1800" />
+    <title>Smart Home Dashboard</title>
+    <link rel="stylesheet" href="./src/styles/main.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="topbar__branding">
+          <div class="brand-mark">⌂</div>
+          <div>
+            <div class="brand-name">Viherlaakso Home</div>
+            <div class="brand-subtitle">Espoo, Finland</div>
+          </div>
+        </div>
+
+        <div class="clock-panel">
+          <div id="header-time" class="header-time">--:--:--</div>
+          <div id="header-date" class="header-date">Monday, 1 January 2026</div>
+        </div>
+
+        <div class="topbar__actions">
+          <button id="rotation-toggle" class="action-btn">Pause</button>
+          <button id="home-btn" class="action-btn accent">Home</button>
+          <button id="fullscreen-btn" class="action-btn">Fullscreen</button>
+        </div>
+      </header>
+
+      <nav id="page-nav" class="page-nav" aria-label="Dashboard pages"></nav>
+
+      <main class="main-content">
+        <section id="page-summary" class="page active" data-page="summary">
+          <div class="summary-grid">
+            <article id="summary-weather" class="card weather-card"></article>
+            <article id="summary-electricity" class="card electricity-card"></article>
+            <article id="summary-transport" class="card transport-card"></article>
+            <article id="summary-schedule" class="card schedule-card"></article>
+            <article id="summary-code" class="card code-card"></article>
+          </div>
+        </section>
+
+        <section id="page-electricity" class="page" data-page="electricity">
+          <div id="electricity-page" class="content-panel"></div>
+        </section>
+
+        <section id="page-schedule" class="page" data-page="schedule">
+          <div id="schedule-page" class="content-panel"></div>
+        </section>
+
+        <section id="page-transport" class="page" data-page="transport">
+          <div id="transport-page" class="content-panel"></div>
+        </section>
+
+        <section id="page-weather" class="page" data-page="weather">
+          <div id="weather-page" class="content-panel"></div>
+        </section>
+
+        <section id="page-dailyCode" class="page" data-page="dailyCode">
+          <div id="daily-code-page" class="content-panel"></div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

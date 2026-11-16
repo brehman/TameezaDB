@@ -1,0 +1,693 @@
+:root {
+  --background: #0b1220;
+  --card-background: #162033;
+  --primary-text: #f8fafc;
+  --secondary-text: #94a3b8;
+  --accent: #38bdf8;
+  --success: #22c55e;
+  --warning: #facc15;
+  --danger: #ef4444;
+  --shadow: rgba(15, 23, 42, 0.35);
+  --surface-overlay: rgba(148, 163, 184, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--background);
+  color: var(--primary-text);
+  font-family: Inter, 'Segoe UI', sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+}
+
+.app-shell {
+  max-width: 1920px;
+  width: 100%;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 12px 20px 20px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.topbar__branding {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 260px;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), rgba(56, 189, 248, 0.4));
+  font-size: 1.6rem;
+}
+
+.brand-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.brand-subtitle {
+  color: var(--secondary-text);
+  font-size: 0.8rem;
+}
+
+.clock-panel {
+  text-align: center;
+}
+
+.header-time {
+  font-size: clamp(2rem, 2vw, 3rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.header-date {
+  color: var(--secondary-text);
+  font-size: 0.9rem;
+}
+
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.action-btn, .nav-btn {
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  color: var(--primary-text);
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.action-btn.accent {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.5);
+}
+
+.action-btn:hover, .nav-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(56, 189, 248, 0.5);
+}
+
+.page-nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 14px;
+}
+
+.nav-btn {
+  padding: 10px 12px;
+  font-size: 0.8rem;
+}
+
+.nav-btn.active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.8);
+}
+
+.main-content {
+  height: calc(100vh - 160px);
+}
+
+.page {
+  display: none;
+  height: 100%;
+}
+
+.page.active {
+  display: block;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1.25fr 1.1fr;
+  grid-template-rows: auto auto;
+  gap: 14px;
+  height: 100%;
+}
+
+.card, .content-panel {
+  background: linear-gradient(180deg, rgba(22, 32, 51, 0.96), rgba(15, 23, 42, 0.96));
+  border: 1px solid rgba(148, 163, 184, 0.11);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 10px 28px var(--shadow);
+}
+
+.summary-grid .card:nth-child(1) { grid-column: 1 / 2; }
+.summary-grid .card:nth-child(2) { grid-column: 2 / 3; }
+.summary-grid .card:nth-child(3) { grid-column: 3 / 4; }
+.summary-grid .card:nth-child(4) { grid-column: 1 / 3; }
+.summary-grid .card:nth-child(5) { grid-column: 3 / 4; }
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.tag {
+  background: rgba(56, 189, 248, 0.14);
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--primary-text);
+  font-size: 0.7rem;
+  text-transform: capitalize;
+}
+
+.tag.success { background: rgba(34, 197, 94, 0.14); }
+.tag.warning { background: rgba(250, 204, 21, 0.14); }
+.tag.danger { background: rgba(239, 68, 68, 0.14); }
+
+.weather-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 8px;
+}
+
+.weather-temp {
+  font-size: clamp(2.8rem, 4vw, 4.5rem);
+  font-weight: 800;
+}
+
+.weather-icon {
+  font-size: 2.5rem;
+}
+
+.weather-meta {
+  color: var(--secondary-text);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--secondary-text);
+  font-size: 0.8rem;
+  margin-bottom: 12px;
+}
+
+.mini-hour-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mini-hour-card {
+  background: rgba(148, 163, 184, 0.05);
+  border-radius: 12px;
+  padding: 8px 6px;
+  text-align: center;
+  font-size: 0.7rem;
+}
+
+.mini-weather-icon {
+  font-size: 1.2rem;
+  margin: 4px 0;
+}
+
+.big-price {
+  font-size: clamp(2rem, 2vw, 3rem);
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.subtle-line {
+  color: var(--secondary-text);
+  margin-bottom: 12px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.stat-grid div {
+  background: rgba(148, 163, 184, 0.05);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.stat-grid label {
+  display: block;
+  color: var(--secondary-text);
+  font-size: 0.7rem;
+  margin-bottom: 4px;
+}
+
+.chart-period-label {
+  color: var(--secondary-text);
+  font-size: 0.72rem;
+  margin-top: 8px;
+  text-transform: uppercase;
+}
+
+.transport-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  color: var(--secondary-text);
+}
+
+.route-block {
+  margin-bottom: 10px;
+}
+
+.schedule-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.child-summary {
+  background: rgba(148, 163, 184, 0.05);
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.child-summary h4 {
+  margin: 0 0 8px;
+}
+
+.schedule-status {
+  color: var(--accent);
+  font-size: 0.75rem;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.quote-box {
+  font-size: clamp(1.2rem, 1.6vw, 2rem);
+  line-height: 1.5;
+  font-weight: 700;
+  text-align: center;
+  background: rgba(56, 189, 248, 0.08);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.content-panel {
+  height: 100%;
+  overflow: hidden;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.page-header h2 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.page-header p {
+  margin: 0;
+  color: var(--secondary-text);
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat-box {
+  background: rgba(148, 163, 184, 0.05);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.stat-box span {
+  color: var(--secondary-text);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.electricity-chart {
+  display: flex;
+  align-items: stretch;
+  height: 420px;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.chart-y-axis {
+  position: relative;
+  flex: 0 0 48px;
+  height: calc(100% - 20px);
+  margin-bottom: 20px;
+  border-right: 1px solid rgba(148, 163, 184, 0.28);
+  color: var(--secondary-text);
+  font-size: 0.72rem;
+}
+
+.chart-y-axis-title {
+  position: absolute;
+  top: -22px;
+  right: 4px;
+  color: var(--secondary-text);
+  font-size: 0.68rem;
+}
+
+.chart-y-tick {
+  position: absolute;
+  right: 6px;
+  transform: translateY(50%);
+  white-space: nowrap;
+}
+
+.chart-bars {
+  position: relative;
+  display: flex;
+  align-items: end;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  gap: 4px;
+}
+
+.chart-gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(148, 163, 184, 0.14);
+  pointer-events: none;
+}
+
+.chart-bar-wrap {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-bar {
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, var(--accent), rgba(56, 189, 248, 0.3));
+}
+
+.chart-bar.blue { background: linear-gradient(180deg, #60a5fa, #2563eb); }
+.chart-bar.green { background: linear-gradient(180deg, #4ade80, #16a34a); }
+.chart-bar.orange { background: linear-gradient(180deg, #fb923c, #ea580c); }
+.chart-bar.bright-red { background: linear-gradient(180deg, #f87171, #dc2626); }
+.chart-bar.dark-red { background: linear-gradient(180deg, #b91c1c, #7f1d1d); }
+.chart-bar.maroon { background: linear-gradient(180deg, #861b3a, #4a0d20); }
+
+.chart-bar-wrap span {
+  height: 12px;
+  flex: 0 0 12px;
+  font-size: 0.58rem;
+  color: var(--secondary-text);
+}
+
+.electricity-chart--compact {
+  height: 142px;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.electricity-chart--compact .chart-y-axis {
+  flex-basis: 40px;
+  font-size: 0.55rem;
+}
+
+.electricity-chart--compact .chart-y-axis-title {
+  top: -16px;
+  font-size: 0.52rem;
+}
+
+.electricity-chart--compact .chart-y-tick {
+  right: 4px;
+}
+
+.electricity-chart--compact .chart-bars {
+  gap: 2px;
+}
+
+.electricity-chart--compact .chart-bar-wrap {
+  gap: 4px;
+}
+
+.electricity-chart--compact .chart-bar-wrap span {
+  height: 10px;
+  flex-basis: 10px;
+  font-size: 0.48rem;
+}
+
+.electricity-period-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+}
+
+.electricity-period-grid--both {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.electricity-period h3 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+}
+
+.electricity-period .stats-row {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.electricity-period .stat-box {
+  min-width: 0;
+  padding: 10px;
+}
+
+.electricity-period .stat-box strong {
+  font-size: 0.9rem;
+}
+
+.electricity-chart--split {
+  height: 350px;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.electricity-chart--split .chart-y-axis {
+  flex-basis: 44px;
+  font-size: 0.64rem;
+}
+
+.electricity-chart--split .chart-y-axis-title {
+  font-size: 0.6rem;
+}
+
+.electricity-chart--split .chart-bars {
+  gap: 2px;
+}
+
+.electricity-chart--split .chart-bar-wrap {
+  gap: 6px;
+}
+
+.electricity-chart--split .chart-bar-wrap span {
+  font-size: 0.52rem;
+}
+
+.weather-header-block {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  margin-bottom: 24px;
+}
+
+.weather-large {
+  font-size: clamp(3.5rem, 6vw, 7rem);
+  font-weight: 800;
+}
+
+.weather-hourly-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.weather-row-item {
+  background: rgba(148, 163, 184, 0.05);
+  border-radius: 12px;
+  padding: 12px 10px;
+  text-align: center;
+  font-size: 0.82rem;
+}
+
+.timeline-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.timeline-card {
+  background: rgba(148, 163, 184, 0.04);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.timeline-card h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.timeline-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 120px;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  font-size: 0.9rem;
+}
+
+.transport-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.transport-card {
+  background: rgba(148, 163, 184, 0.04);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.departure-list {
+  display: grid;
+  gap: 8px;
+}
+
+.departure-item {
+  display: grid;
+  grid-template-columns: 60px 1fr 80px 80px;
+  gap: 8px;
+  font-size: 0.9rem;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.04);
+}
+
+.code-panel {
+  margin-top: 24px;
+  background: rgba(56, 189, 248, 0.08);
+  border-radius: 20px;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.code-label {
+  color: var(--secondary-text);
+  letter-spacing: 0.18em;
+  font-size: 0.8rem;
+  margin-bottom: 16px;
+}
+
+.quote-value {
+  font-size: clamp(2.2rem, 4vw, 4.5rem);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+@media (max-width: 1200px) {
+  .summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .summary-grid .card:nth-child(5) {
+    grid-column: 1 / 3;
+  }
+}
+
+@media (max-width: 900px) {
+  body {
+    overflow: auto;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .summary-grid,
+  .transport-grid,
+  .timeline-grid,
+  .weather-hourly-grid,
+  .schedule-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .weather-header-block {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  #page-electricity.page.active {
+    overflow: auto;
+  }
+
+  #electricity-page {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .electricity-period-grid--both {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
