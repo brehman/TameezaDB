@@ -33,6 +33,32 @@ export function parseElectricityApi(payload, now = new Date()) {
   };
 }
 
+// Aggregate complete hours only; missing quarters must not become an hourly price.
+export function aggregateHourlyPrices(intervals = []) {
+  const groups = new Map();
+  for (const interval of intervals) {
+    const start = new Date(interval.start).getTime();
+    const hour = Math.floor(start / 3600000) * 3600000;
+    if (!groups.has(hour)) groups.set(hour, []);
+    groups.get(hour).push(interval);
+  }
+  return [...groups.entries()].sort(([a], [b]) => a - b).flatMap(([hour, entries]) => {
+    entries.sort((a, b) => new Date(a.start) - new Date(b.start));
+    let cursor = hour;
+    let weightedPrice = 0;
+    for (const entry of entries) {
+      const start = new Date(entry.start).getTime();
+      const end = new Date(entry.end).getTime();
+      if (start !== cursor || end <= start || end > hour + 3600000 || !Number.isFinite(entry.value)) return [];
+      weightedPrice += entry.value * (end - start);
+      cursor = end;
+    }
+    return cursor === hour + 3600000 ? [{
+      start: new Date(hour).toISOString(), end: new Date(cursor).toISOString(), value: weightedPrice / 3600000,
+    }] : [];
+  });
+}
+
 export function selectElectricityDays(feed = {}, now = new Date()) {
   // Legacy scraped prices have an unknown tax basis and must not be displayed.
   const intervals = feed.schemaVersion === 2 && feed.includesVat === true ? feed.intervals || [] : [];

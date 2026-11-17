@@ -81,3 +81,5 @@ npm test
 The Schedule page's **Update schedules** button fetches the latest deployed U, N, S, and TC ICS files without using cached responses and rebuilds the displayed calendars in the browser. Push changed ICS files and wait for deployment before pressing it. The refresh applies to this open dashboard; it does not write back to the repository. Failed updates preserve the previous calendars. Every page load automatically fetches and expands all four ICS files through the same loader, including S. The generated calendar JSON is used only if loading the ICS files fails.
 
 Weather and home icons use lightweight SVG shapes instead of emoji, so signage players do not need emoji fonts.
+
+Electricity charts and the current-price display use complete one-hour averages of the underlying VAT-inclusive 15-minute prices. An hour with missing quarters is unavailable, and daylight-saving repeated hours remain distinct. Schedule lessons are vertically stacked tiles. Tomorrow's calendar can be selected from 13:00 Europe/Helsinki; before that, the Tomorrow button is hidden and the date picker is limited to today. The control updates automatically as time advances.

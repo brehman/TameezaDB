@@ -1,7 +1,7 @@
-import { fetchElectricityFeed, selectElectricityDays } from './services/electricityFeed.js';
+import { fetchElectricityFeed, selectElectricityDays, aggregateHourlyPrices } from './services/electricityFeed.js?v=hourly-tiles';
 import { getDailyCodeForDate } from './services/dailyCodeService.js';
 import { getAveragePrice, getCheapestInterval, getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getMostExpensiveInterval, getPriceLevel, isCurrentElectricityInterval } from './services/electricityService.js?v=spot-api-v2';
-import { getUpcomingCalendarEvent } from './services/scheduleService.js';
+import { getUpcomingCalendarEvent, getScheduleDateWindow } from './services/scheduleService.js?v=hourly-tiles';
 import { fetchTransportData, getDepartureMinutesUntil, getSortedDepartures } from './services/transportService.js';
 import { fetchWeatherData, getHourlyForecastFromCurrentHour, getThemeForSunPosition, mapWeatherCode } from './services/weatherService.js?v=yodeck-svg-schedule-refresh';
 import { formatCountdown, formatDateLong, formatHHMM, formatHHMMSS, formatPrice, parseHHMM } from './utils/time.js';
@@ -160,7 +160,7 @@ function electricityFeedStatus(current) {
   const fetchedAt = state.electricity?.fetchedAt;
   const updated = fetchedAt && Number.isFinite(new Date(fetchedAt).getTime())
     ? new Date(fetchedAt).toLocaleString('en-GB', { timeZone: 'Europe/Helsinki', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'unknown';
-  return `${current ? '15-min spot • VAT included • excludes supplier margin and grid fees' : 'Price unavailable / outdated'} · Fetched ${updated} · Porssisahko.net`;
+  return `${current ? 'Hourly average • VAT included • excludes supplier margin and grid fees' : 'Price unavailable / outdated'} · Fetched ${updated} · Porssisahko.net`;
 }
 
 function renderSummaryPage() {
@@ -184,7 +184,7 @@ function renderSummaryPage() {
   }).join('');
 
   const electricity = selectElectricityDays(state.electricity || {});
-  const chartIntervals = electricity.intervals;
+  const chartIntervals = aggregateHourlyPrices(electricity.intervals);
   const currentInterval = getCurrentInterval(chartIntervals, new Date());
   const priceValue = currentInterval ? currentInterval.value : null;
   const avgPrice = getAveragePrice(chartIntervals);
@@ -286,8 +286,8 @@ function renderSummaryPage() {
 
 function renderElectricityPage() {
   const electricity = selectElectricityDays(state.electricity || {});
-  const todayIntervals = electricity.intervals;
-  const tomorrowIntervals = electricity.tomorrowIntervals;
+  const todayIntervals = aggregateHourlyPrices(electricity.intervals);
+  const tomorrowIntervals = aggregateHourlyPrices(electricity.tomorrowIntervals);
   const showTomorrow = tomorrowIntervals.length > 0;
   const current = getCurrentInterval(todayIntervals, new Date());
   const renderPeriod = (label, intervals) => `
@@ -353,22 +353,23 @@ function renderWeatherPage() {
           <span class="weather-icon">${current?.description?.icon || mapWeatherCode(1).icon}</span>
         </div>
         <div class="weekly-weather-grid">${weeklyTiles}</div>
-      </div>
       </section>
     </div>
   `;
 }
 
 function renderSchedulePage() {
-  const date = state.selectedScheduleDate || getHelsinkiDateKey();
+  const window = getScheduleDateWindow();
+  const requestedDate = state.selectedScheduleDate || window.today;
+  const date = requestedDate > window.maxDate ? window.today : requestedDate;
   state.selectedScheduleDate = date;
   const cards = state.schedules.map((child) => {
     const entries = child.days[date] || [];
     const lines = entries.map((entry) => `
       <div class="timeline-row">
         <time>${entry.start}–${entry.end}</time>
-        <span>${entry.title}</span>
-        <span>${entry.location || ''}</span>
+        <strong class="schedule-event-title">${entry.title}</strong>
+        ${entry.location ? `<span class="schedule-event-location">${entry.location}</span>` : ''}
       </div>
     `).join('');
     return `
@@ -383,16 +384,20 @@ function renderSchedulePage() {
     <div class="page-header">
       <h2>Schedule</h2>
       <div class="schedule-actions">
-        <label class="schedule-date-control">Date <input id="schedule-date" type="date" value="${date}"></label>
+        <button id="schedule-today" type="button" class="nav-btn ${date === window.today ? 'active' : ''}">Today</button>
+        ${window.showTomorrow ? `<button id="schedule-tomorrow" type="button" class="nav-btn ${date === window.tomorrow ? 'active' : ''}">Tomorrow</button>` : '<span class="schedule-release-note">Tomorrow available at 13:00</span>'}
+        <label class="schedule-date-control">Date <input id="schedule-date" type="date" value="${date}" max="${window.maxDate}"></label>
         <button id="update-schedules" type="button" class="nav-btn" ${state.scheduleUpdating ? 'disabled' : ''}>${state.scheduleUpdating ? 'Updating...' : 'Update schedules'}</button>
       </div>
     </div>
     <p class="schedule-status" role="status" aria-live="polite">${state.scheduleStatus}</p>
     <div class="timeline-grid">${cards}</div>
   `;
+  document.getElementById('schedule-today').addEventListener('click', () => { state.selectedScheduleDate = getScheduleDateWindow().today; renderSchedulePage(); });
+  document.getElementById('schedule-tomorrow')?.addEventListener('click', () => { state.selectedScheduleDate = getScheduleDateWindow().tomorrow; renderSchedulePage(); });
   document.getElementById('update-schedules').addEventListener('click', updateSchedulesFromIcs);
   document.getElementById('schedule-date').addEventListener('change', (event) => {
-    if (!event.target.value) return;
+    if (!event.target.value || event.target.value > getScheduleDateWindow().maxDate) { renderSchedulePage(); return; }
     state.selectedScheduleDate = event.target.value;
     renderSchedulePage();
   });
@@ -545,6 +550,7 @@ async function initializeDashboard() {
       state.electricityRenderMinute = minute;
       renderSummaryPage();
       renderElectricityPage();
+      renderSchedulePage();
     }
   }, 1000);
   setInterval(() => {

@@ -56,3 +56,15 @@ export function resolveCurrentScheduleState(daySchedule = {}, currentTime = '00:
     entries,
   };
 }
+
+// Calendar visibility follows Helsinki time, regardless of the player's timezone.
+export function getScheduleDateWindow(now = new Date()) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Helsinki', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(now)).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+  const today = `${parts.year}-${parts.month}-${parts.day}`;
+  const tomorrow = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day) + 1)).toISOString().slice(0, 10);
+  const showTomorrow = Number(parts.hour) >= 13;
+  return { today, tomorrow, showTomorrow, maxDate: showTomorrow ? tomorrow : today };
+}

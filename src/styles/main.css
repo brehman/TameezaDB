@@ -783,7 +783,7 @@ button {
 
 .quote-weather-layout {
   display: grid;
-  grid-template-rows: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  grid-template-rows: minmax(0, 0.6fr) minmax(0, 1.4fr);
   gap: 18px;
   height: calc(100% - 58px);
   min-height: 0;
@@ -830,7 +830,7 @@ button {
 
 .weekly-weather-heading h3 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: 1.65rem;
 }
 
 .weekly-weather-heading p {
@@ -857,33 +857,32 @@ button {
   align-items: center;
   justify-content: space-between;
   min-width: 0;
-  padding: 14px 8px;
+  padding: 24px 12px;
   border: 1px solid rgba(255, 255, 255, 0.86);
-  border-radius: 18px;
+  border-radius: 28px;
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.76), rgba(241, 247, 252, 0.54));
   box-shadow: 0 8px 20px rgba(35, 57, 82, 0.07), inset 0 1px 0 #fff;
-  backdrop-filter: blur(18px) saturate(140%);
   text-align: center;
 }
 
 .weekly-weather-day {
-  font-size: 1.05rem;
+  font-size: 1.6rem;
   font-weight: 750;
 }
 
 .weekly-weather-date {
   color: var(--secondary-text);
-  font-size: 0.9rem;
+  font-size: 1.15rem;
 }
 
 .weekly-weather-icon {
-  font-size: 2.6rem;
+  font-size: 4.2rem;
   line-height: 1;
 }
 
 .weekly-weather-condition {
   min-height: 2.5em;
-  font-size: 0.9rem;
+  font-size: 1.25rem;
   line-height: 1.25;
 }
 
@@ -892,7 +891,7 @@ button {
   align-items: baseline;
   justify-content: center;
   gap: 10px;
-  font-size: 1.15rem;
+  font-size: 2rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -923,8 +922,9 @@ button {
 .timeline-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-  height: calc(100% - 58px);
+  align-items: start;
+  gap: 18px;
+  height: auto;
 }
 
 .timeline-card {
@@ -945,17 +945,24 @@ button {
 }
 
 .timeline-events {
-  max-height: calc(100% - 40px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .timeline-row {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1.5fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-  font-size: 0.9rem;
+  min-height: 105px;
+  padding: 16px 18px;
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  background: var(--card-background);
+  box-shadow: 0 3px 10px var(--shadow);
+  font-size: 1.15rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .timeline-row time {
@@ -1287,3 +1294,17 @@ button {
 .schedule-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .schedule-status { min-height: 1.2em; color: var(--secondary-text); }
 #update-schedules:disabled { opacity: 0.6; cursor: wait; }
+
+/* Allow lesson tiles to grow vertically rather than squeeze their text. */
+#page-schedule.page.active { overflow-y: auto; }
+#schedule-page { height: auto; min-height: 100%; overflow: visible; }
+.timeline-card h3 { font-size: 1.6rem; }
+.timeline-row time { font-size: 1.3rem; font-weight: 750; color: var(--accent); }
+.schedule-event-title { font-size: 1.2rem; }
+.schedule-event-location, .schedule-release-note { color: var(--secondary-text); }
+.schedule-release-note { font-size: 1rem; }
+.weekly-weather-temperatures strong { font-size: 2.6rem; }
+@media (max-width: 1100px) {
+  .weekly-weather-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .weekly-weather-tile { min-height: 270px; }
+}

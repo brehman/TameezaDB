@@ -348,3 +348,45 @@ test('API inclusive end timestamps become continuous exclusive intervals', () =>
   assert.equal(getCurrentInterval(feed.intervals, '2026-11-17T10:14:59.999Z').value, 5);
   assert.equal(getCurrentInterval(feed.intervals, '2026-11-17T10:15:00Z').value, 6);
 });
+
+test('hourly electricity averages four quarters and rejects incomplete hours', async () => {
+  const { aggregateHourlyPrices } = await import('../src/services/electricityFeed.js');
+  const quarters = [4, 8, -4, 12].map((value, index) => ({
+    start: new Date(Date.UTC(2026, 10, 17, 8, index * 15)).toISOString(),
+    end: new Date(Date.UTC(2026, 10, 17, 8, (index + 1) * 15)).toISOString(), value,
+  }));
+  const hours = aggregateHourlyPrices(quarters);
+  assert.equal(hours.length, 1);
+  assert.equal(hours[0].value, 5);
+  assert.equal(hours[0].start, '2026-11-17T08:00:00.000Z');
+  assert.equal(hours[0].end, '2026-11-17T09:00:00.000Z');
+  assert.equal(getCurrentInterval(hours, '2026-11-17T08:40:00Z').value, 5);
+  assert.equal(aggregateHourlyPrices(quarters.slice(1)).length, 0);
+  assert.equal(aggregateHourlyPrices([...quarters, quarters[0]]).length, 0);
+});
+
+test('hourly electricity keeps repeated autumn Helsinki hours separate', async () => {
+  const { aggregateHourlyPrices } = await import('../src/services/electricityFeed.js');
+  const quarters = Array.from({ length: 8 }, (_, index) => ({
+    start: new Date(Date.UTC(2026, 9, 25, 0, index * 15)).toISOString(),
+    end: new Date(Date.UTC(2026, 9, 25, 0, (index + 1) * 15)).toISOString(), value: index < 4 ? 10 : 20,
+  }));
+  const hours = aggregateHourlyPrices(quarters);
+  assert.equal(hours.length, 2);
+  assert.equal(hours[0].value, 10);
+  assert.equal(hours[1].value, 20);
+});
+
+test('tomorrow schedule unlocks at 13 Helsinki time in winter and summer', async () => {
+  const { getScheduleDateWindow } = await import('../src/services/scheduleService.js');
+  assert.equal(getScheduleDateWindow('2026-11-17T10:59:59Z').showTomorrow, false);
+  const winter = getScheduleDateWindow('2026-11-17T11:00:00Z');
+  assert.equal(winter.showTomorrow, true);
+  assert.equal(winter.maxDate, '2026-11-18');
+  assert.equal(getScheduleDateWindow('2026-06-17T09:59:59Z').showTomorrow, false);
+  assert.equal(getScheduleDateWindow('2026-06-17T10:00:00Z').showTomorrow, true);
+  const midnight = getScheduleDateWindow('2026-11-17T22:00:00Z');
+  assert.equal(midnight.showTomorrow, false);
+  assert.equal(midnight.today, '2026-11-18');
+  assert.equal(midnight.maxDate, '2026-11-18');
+});
