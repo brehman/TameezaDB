@@ -367,8 +367,10 @@ function renderSchedulePage() {
     const entries = child.days[date] || [];
     const lines = entries.map((entry) => `
       <div class="timeline-row">
-        <time>${entry.start}–${entry.end}</time>
-        <strong class="schedule-event-title">${entry.title}</strong>
+        <div class="schedule-event-heading">
+          <time>${entry.start}–${entry.end}</time>
+          <strong class="schedule-event-title">${entry.title}</strong>
+        </div>
         ${entry.location ? `<span class="schedule-event-location">${entry.location}</span>` : ''}
       </div>
     `).join('');

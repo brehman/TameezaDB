@@ -947,15 +947,15 @@ button {
 .timeline-events {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .timeline-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  min-height: 105px;
-  padding: 16px 18px;
+  min-height: 68px;
+  padding: 12px 14px;
   border: 1px solid var(--glass-border);
   border-radius: 18px;
   background: var(--card-background);
@@ -1299,12 +1299,45 @@ button {
 #page-schedule.page.active { overflow-y: auto; }
 #schedule-page { height: auto; min-height: 100%; overflow: visible; }
 .timeline-card h3 { font-size: 1.6rem; }
-.timeline-row time { font-size: 1.3rem; font-weight: 750; color: var(--accent); }
-.schedule-event-title { font-size: 1.2rem; }
+.timeline-row time { font-size: 1.1rem; font-weight: 750; color: var(--accent); }
+.schedule-event-title { font-size: 1.1rem; min-width: 0; }
 .schedule-event-location, .schedule-release-note { color: var(--secondary-text); }
 .schedule-release-note { font-size: 1rem; }
 .weekly-weather-temperatures strong { font-size: 2.6rem; }
 @media (max-width: 1100px) {
   .weekly-weather-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
   .weekly-weather-tile { min-height: 270px; }
+}
+
+.schedule-event-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.schedule-event-heading time { flex-shrink: 0; }
+.schedule-event-location { font-size: 1rem; }
+
+/* Size the signage content from the actual header and navigation heights. */
+@media (min-width: 901px) {
+  .app-shell { height: 100vh; display: flex; flex-direction: column; }
+  .topbar, .page-nav { flex-shrink: 0; }
+  .main-content { flex: 1; height: auto; min-height: 0; }
+  #weather-page { display: flex; flex-direction: column; }
+  #weather-page > .page-header { flex-shrink: 0; margin-bottom: 10px; }
+  .quote-weather-layout {
+    flex: 1;
+    height: auto;
+    grid-template-rows: minmax(0, 0.55fr) minmax(0, 1.45fr);
+    gap: 12px;
+  }
+  .weather-quote-panel { min-height: 0; padding: 14px 24px; }
+  .weather-quote-panel .code-label { margin-bottom: 6px; }
+  .weather-quote-panel .quote-value { font-size: clamp(1.6rem, 2.4vw, 2.8rem); line-height: 1.15; }
+  .weekly-weather-panel { padding-top: 0; }
+  .weekly-weather-heading { min-height: 44px; margin-bottom: 8px; flex-shrink: 0; }
+  .weekly-weather-tile { min-height: 0; padding: 14px 10px; }
+  .weekly-weather-icon { font-size: 3.4rem; }
+  .weekly-weather-condition { min-height: 0; font-size: 1.15rem; }
+  .weekly-weather-temperatures { font-size: 1.7rem; }
+  .weekly-weather-temperatures strong { font-size: 2.2rem; }
 }
