@@ -39,7 +39,12 @@ jobs:
         run: npm run update:electricity
         continue-on-error: true
 
+      - name: Report electricity refresh failure
+        if: steps.electricity.outcome == 'failure'
+        run: echo '::warning::Electricity refresh failed. Dashboard will mark expired prices unavailable.'
+
       - name: Commit refreshed electricity prices
+        continue-on-error: true
         if: steps.electricity.outcome == 'success'
         run: |
           if git diff --quiet -- data/electricity/fi-prices.json; then

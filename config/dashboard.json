@@ -25,7 +25,7 @@
     "dailyCode": { "enabled": false, "durationSeconds": 15, "label": "Daily Quote" }
   },
   "electricity": {
-    "vatPercent": 24,
+    "vatPercent": 25.5,
     "lowThreshold": 10,
     "highThreshold": 20,
     "sourceMode": "local-json",

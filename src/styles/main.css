@@ -457,7 +457,7 @@ button {
 
 .schedule-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1280,3 +1280,10 @@ button {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Font-independent graphics for signage players without emoji fonts. */
+.weather-symbol { width: 1em; height: 1em; display: inline-block; vertical-align: middle; }
+.brand-mark svg { width: 28px; height: 28px; }
+.schedule-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.schedule-status { min-height: 1.2em; color: var(--secondary-text); }
+#update-schedules:disabled { opacity: 0.6; cursor: wait; }

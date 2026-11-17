@@ -1,36 +1,39 @@
+import { weatherIcon } from '../utils/weatherIcons.js';
+
 const WEATHER_CODES = {
-  0: { label: 'Clear sky', icon: '☀️' },
-  1: { label: 'Mostly clear', icon: '🌤️' },
-  2: { label: 'Partly cloudy', icon: '⛅' },
-  3: { label: 'Overcast', icon: '☁️' },
-  45: { label: 'Fog', icon: '🌫️' },
-  48: { label: 'Depositing rime fog', icon: '🌫️' },
-  51: { label: 'Light drizzle', icon: '🌦️' },
-  53: { label: 'Drizzle', icon: '🌦️' },
-  55: { label: 'Dense drizzle', icon: '🌧️' },
-  56: { label: 'Freezing drizzle', icon: '🌧️' },
-  57: { label: 'Heavy freezing drizzle', icon: '🌧️' },
-  61: { label: 'Slight rain', icon: '🌦️' },
-  63: { label: 'Rain', icon: '🌧️' },
-  65: { label: 'Heavy rain', icon: '🌧️' },
-  66: { label: 'Freezing rain', icon: '🌧️' },
-  67: { label: 'Heavy freezing rain', icon: '🌧️' },
-  71: { label: 'Slight snow', icon: '🌨️' },
-  73: { label: 'Snow', icon: '❄️' },
-  75: { label: 'Heavy snow', icon: '❄️' },
-  77: { label: 'Snow grains', icon: '❄️' },
-  80: { label: 'Rain showers', icon: '🌦️' },
-  81: { label: 'Heavy rain showers', icon: '🌧️' },
-  82: { label: 'Violent rain showers', icon: '⛈️' },
-  85: { label: 'Snow showers', icon: '🌨️' },
-  86: { label: 'Heavy snow showers', icon: '❄️' },
-  95: { label: 'Thunderstorm', icon: '⛈️' },
-  96: { label: 'Thunderstorm with hail', icon: '⛈️' },
-  99: { label: 'Severe thunderstorm', icon: '⛈️' },
+  0: { label: 'Clear sky' },
+  1: { label: 'Mostly clear' },
+  2: { label: 'Partly cloudy' },
+  3: { label: 'Overcast' },
+  45: { label: 'Fog' },
+  48: { label: 'Depositing rime fog' },
+  51: { label: 'Light drizzle' },
+  53: { label: 'Drizzle' },
+  55: { label: 'Dense drizzle' },
+  56: { label: 'Freezing drizzle' },
+  57: { label: 'Heavy freezing drizzle' },
+  61: { label: 'Slight rain' },
+  63: { label: 'Rain' },
+  65: { label: 'Heavy rain' },
+  66: { label: 'Freezing rain' },
+  67: { label: 'Heavy freezing rain' },
+  71: { label: 'Slight snow' },
+  73: { label: 'Snow' },
+  75: { label: 'Heavy snow' },
+  77: { label: 'Snow grains' },
+  80: { label: 'Rain showers' },
+  81: { label: 'Heavy rain showers' },
+  82: { label: 'Violent rain showers' },
+  85: { label: 'Snow showers' },
+  86: { label: 'Heavy snow showers' },
+  95: { label: 'Thunderstorm' },
+  96: { label: 'Thunderstorm with hail' },
+  99: { label: 'Severe thunderstorm' },
 };
 
 export function mapWeatherCode(code) {
-  return WEATHER_CODES[Number(code)] || { label: 'Weather', icon: '🌤️' };
+  const condition = WEATHER_CODES[Number(code)] || { label: 'Weather' };
+  return { ...condition, icon: weatherIcon(code) };
 }
 
 export function getThemeForSunPosition(currentDate = new Date(), sunrise, sunset) {

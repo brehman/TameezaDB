@@ -11,7 +11,7 @@ This project intentionally avoids a traditional backend. The dashboard is design
 - Frontend: static HTML, CSS, and JavaScript modules
 - Hosting: GitHub Pages
 - Weather source: Open-Meteo (browser-friendly, no API key, CORS-friendly)
-- Electricity source: hourly prices parsed from Pörssisähkö.net into a local JSON feed by GitHub Actions; suitable for static hosting
+- Electricity source: VAT-inclusive 15-minute Finnish spot prices from the Porssisahko.net v2 JSON API, fetched by GitHub Actions into a static feed
 - Public transport source: live HSL/Digitransit stop times for Viherlaaksontori, Kavallinmäki, Kauniainen, and Leppävaara
 - Family schedules: U, N, S, and TC ICS calendars expanded into date-specific JSON when starting locally and before GitHub Pages deployment
 - Daily quote: local text file with deterministic rotation logic
@@ -47,7 +47,7 @@ Edit `config/dashboard.json` to change:
 - Weather coordinates
 - Display and rotation settings
 - Page order and durations
-- Electricity price thresholds and VAT
+- Electricity price thresholds (feed prices already include VAT)
 - HSL stop IDs
 - Daily quote rotation start date
 
@@ -56,11 +56,11 @@ Edit `config/dashboard.json` to change:
 - `data/daily-quotes.txt` — one motivational quote per line
 - `schedules/U.ics`, `schedules/N.ics`, `schedules/S.ics`, and `schedules/TC.ics` — source calendars
 - `data/schedules/calendar.json` — generated date-specific schedules; build with `npm run build:schedules`
-- `data/electricity/fi-prices.json` — electricity feed updated from Pörssisähkö.net hourly
+- `data/electricity/fi-prices.json` — electricity feed updated from the Porssisahko.net v2 API hourly
 
-The summary shows each child's first calendar start and last scheduled end for today, plus the next upcoming TC event. The Schedule page shows events for the selected date in four columns: U, N, S, and TC. Schedule JSON is regenerated from the ICS files when starting locally with `npm start` or `npm run serve`, and by the Pages workflow before deployment.
+The summary shows U, N, and S's first calendar start and last scheduled end for today, plus the next upcoming TC event. The Schedule page shows events for the selected date in four columns: U, N, S, and TC. Schedule JSON is regenerated from the ICS files when starting locally with `npm start` or `npm run serve`, and by the Pages workflow before deployment.
 
-The Pages workflow refreshes today's and tomorrow's electricity prices hourly before deployment. The summary chart always shows today's prices. On the detail page, today's chart remains visible and tomorrow's chart is added at 13:00 Europe/Helsinki when the source has published those prices. The source site does not provide browser CORS access, so the dashboard itself never contacts it directly. If the source is unavailable or its table format changes, the workflow keeps the last working feed and still deploys.
+The Pages workflow refreshes electricity prices hourly before deployment using `https://api.porssisahko.net/v2/latest-prices.json`. Prices are in cents/kWh with VAT already included; no extra VAT is added. The browser checks the deployed JSON every 15 minutes and selects the matching delivery interval as time advances. It does not contact the API directly because the API does not supply browser CORS headers. This is a third-party day-ahead price feed, not a live grid connection. Tomorrow's chart appears when published prices are available. Helsinki dates are recalculated at rendering time so prices roll over at midnight without a new download. The display shows the retrieval timestamp and supplier attribution. Expired or unknown legacy prices are never presented as current; missing data is labelled unavailable/outdated. Electricity supplier margin and grid fees are excluded. Failed workflow refreshes produce a warning; the last valid saved feed may be deployed but expired intervals remain unavailable. Failure to commit the saved feed does not block deployment.
 
 ## Privacy warning
 
@@ -77,3 +77,7 @@ npm test
 ## Planned enhancements
 
 - Add a future local configuration editor for family schedules.
+
+The Schedule page's **Update schedules** button fetches the latest deployed U, N, S, and TC ICS files without using cached responses and rebuilds the displayed calendars in the browser. Push changed ICS files and wait for deployment before pressing it. The refresh applies to this open dashboard; it does not write back to the repository. Failed updates preserve the previous calendars. Reloading the page uses the generated calendar JSON again.
+
+Weather and home icons use lightweight SVG shapes instead of emoji, so signage players do not need emoji fonts.

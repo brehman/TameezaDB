@@ -7,7 +7,7 @@ import { getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, ge
 import { getDepartureMinutesUntil, getSortedDepartures } from '../src/services/transportService.js';
 import { getHourlyForecastFromCurrentHour, getThemeForSunPosition, normalizeWeatherData } from '../src/services/weatherService.js';
 import { expandIcsCalendar } from '../scripts/buildSchedules.js';
-import { parsePorssisahkoHtml } from '../scripts/updateElectricityPrices.js';
+import { parseElectricityApi, selectElectricityDays, fetchElectricityFeed } from '../src/services/electricityFeed.js';
 
 const sampleCodes = ['CODE-001', 'CODE-002', 'CODE-003'];
 
@@ -231,32 +231,56 @@ test('electricity summary levels classify prices from extremely low to very high
   assert.equal(getPriceLevel(25.01), 'very high');
 });
 
-test('electricity source parser reads real hourly table values and handles midnight', () => {
-  const rows = Array.from({ length: 24 }, (_, hour) => {
-    const start = `${String(hour).padStart(2, '0')}:00`;
-    const end = hour === 23 ? '00:00' : `${String(hour + 1).padStart(2, '0')}:00`;
-    const value = hour === 0 ? '1.47' : hour === 23 ? '20.52' : '2.25';
-    return `<tr><td>${start} - ${end}</td><td>${value} c/kWh</td></tr>`;
-  }).join('');
-  const html = `
-    <div id="today">
-      <p>Current price: 4.5 c/kWh</p>
-      <p>Date: <strong>16.11.2026</strong></p>
-      <table><tbody>${rows}</tbody></table>
-    </div>
-    <div id="tomorrow">
-      <p>Date: <strong>17.11.2026</strong></p>
-      <table><tbody>${rows}</tbody></table>
-    </div>
-  `;
+const pricePayload = { prices: [
+  { startDate: '2026-11-17T22:00:00Z', endDate: '2026-11-17T22:15:00Z', price: -1.25 },
+  { startDate: '2026-11-17T21:45:00Z', endDate: '2026-11-17T22:00:00Z', price: 12.345 },
+] };
 
-  const result = parsePorssisahkoHtml(html);
-  assert.equal(result.intervals.length, 24);
-  assert.equal(result.tomorrowIntervals.length, 24);
-  assert.equal(result.tomorrowDate, '2026-11-17');
-  assert.equal(result.intervals[0].value, 1.47);
-  assert.equal(result.intervals[0].start, '2026-11-15T22:00:00.000Z');
-  assert.equal(result.intervals[23].end, '2026-11-16T22:00:00.000Z');
+test('structured feed preserves VAT-inclusive quarter-hour prices and chronological order', () => {
+  const feed = parseElectricityApi(pricePayload, new Date('2026-11-17T21:50:00Z'));
+  assert.equal(feed.includesVat, true);
+  assert.equal(feed.intervals[0].value, 12.345);
+  assert.equal(feed.intervals[1].value, -1.25);
+  assert.equal(feed.fetchedAt, '2026-11-17T21:50:00.000Z');
+});
+
+test('current interval never falls back to a past or future price', () => {
+  const feed = parseElectricityApi(pricePayload, new Date('2026-11-17T21:50:00Z'));
+  assert.equal(getCurrentInterval(feed.intervals, '2026-11-17T21:44:59Z'), null);
+  assert.equal(getCurrentInterval(feed.intervals, '2026-11-17T22:15:00Z'), null);
+  assert.equal(getCurrentInterval(feed.intervals, '2026-11-17T22:00:00Z').value, -1.25);
+});
+
+test('Helsinki midnight rolls tomorrow prices into today without fetching', () => {
+  const feed = parseElectricityApi(pricePayload, new Date('2026-11-17T21:50:00Z'));
+  const before = selectElectricityDays(feed, '2026-11-17T21:59:59Z');
+  const after = selectElectricityDays(feed, '2026-11-17T22:00:00Z');
+  assert.equal(before.intervals[0].value, 12.345);
+  assert.equal(before.tomorrowIntervals[0].value, -1.25);
+  assert.equal(after.intervals[0].value, -1.25);
+  assert.equal(after.tomorrowIntervals.length, 0);
+  assert.equal(selectElectricityDays(feed, '2026-11-19T00:00:00Z').intervals.length, 0);
+  assert.equal(selectElectricityDays({ intervals: feed.intervals }, '2026-11-17T21:50:00Z').intervals.length, 0);
+});
+
+test('structured feed rejects expired, malformed, and overlapping prices', () => {
+  const now = new Date('2026-11-17T21:50:00Z');
+  assert.throws(() => parseElectricityApi(pricePayload, new Date('2026-11-19T00:00:00Z')), /current time/);
+  assert.throws(() => parseElectricityApi({ prices: [{ ...pricePayload.prices[1], price: null }] }, now), /Invalid/);
+  assert.throws(() => parseElectricityApi({ prices: [pricePayload.prices[1], pricePayload.prices[1]] }, now), /Overlapping/);
+});
+
+test('network failures preserve the previous feed, and expired prices remain unavailable', async () => {
+  const previous = parseElectricityApi(pricePayload, new Date('2026-11-17T21:50:00Z'));
+  const originalWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const result = await fetchElectricityFeed('./saved.json', previous, async () => { throw new Error('offline'); });
+    assert.equal(result, previous);
+    assert.equal(getCurrentInterval(result.intervals, '2026-11-19T00:00:00Z'), null);
+  } finally {
+    console.warn = originalWarn;
+  }
 });
 
 test('tomorrow electricity chart is visible from 13:00 Helsinki time when prices are available', () => {
@@ -268,4 +292,59 @@ test('tomorrow electricity chart is visible from 13:00 Helsinki time when prices
   assert.equal(shouldShowTomorrowElectricity(electricityData, '2026-11-16T10:59:00Z'), false);
   assert.equal(shouldShowTomorrowElectricity(electricityData, '2026-11-16T11:00:00Z'), true);
   assert.equal(shouldShowTomorrowElectricity({ intervals: electricityData.intervals }, '2026-11-16T12:00:00Z'), false);
+});
+
+
+test('ICS refresh fetches all four source files without cache and expands events', async () => {
+  const { fetchIcsSchedules } = await import('../src/utils/ics.js');
+  const calls = [];
+  const calendars = await fetchIcsSchedules(async (url, options) => {
+    calls.push(url);
+    assert.equal(options.cache, 'no-store');
+    assert.ok(options.signal);
+    return { ok: true, text: async () => 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:refresh-test\r\nDTSTART:20261117T080000Z\r\nDTEND:20261117T090000Z\r\nSUMMARY:Updated event\r\nEND:VEVENT\r\nEND:VCALENDAR' };
+  });
+  assert.deepEqual(calls, ['U', 'N', 'S', 'TC'].map((name) => `./schedules/${name}.ics`));
+  assert.deepEqual(calendars.map((item) => item.name), ['U', 'N', 'S', 'TC']);
+  assert.equal(calendars[0].days['2026-11-17'][0].start, '10:00');
+  assert.equal(calendars[0].days['2026-11-17'][0].title, 'Updated event');
+});
+
+test('ICS refresh rejects a missing calendar instead of returning partial schedules', async () => {
+  const { fetchIcsSchedules } = await import('../src/utils/ics.js');
+  await assert.rejects(fetchIcsSchedules(async () => ({ ok: false, status: 404 })), /Unable to load.*404/);
+});
+
+test('weather graphics cover every condition using font-independent SVG', async () => {
+  const { mapWeatherCode } = await import('../src/services/weatherService.js');
+  for (const code of [0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99, -1]) {
+    const { icon } = mapWeatherCode(code);
+    assert.match(icon, /^<svg /);
+    assert.match(icon, /viewBox="0 0 64 64"/);
+    assert.doesNotMatch(icon, /<text|<image|<script|http/);
+  }
+});
+
+
+test('saved API feed retains its fetch time and does not add VAT again', async () => {
+  const now = new Date();
+  const start = new Date(now.getTime() - 60000).toISOString();
+  const end = new Date(now.getTime() + 840000).toISOString();
+  const saved = parseElectricityApi({ prices: [{ startDate: start, endDate: end, price: 12.55 }] }, now);
+  const result = await fetchElectricityFeed('./saved.json', null, async (url) => {
+    assert.equal(url, './saved.json');
+    return { ok: true, json: async () => saved };
+  });
+  assert.equal(result.intervals[0].value, 12.55);
+  assert.equal(result.fetchedAt, saved.fetchedAt);
+  assert.equal(result.includesVat, true);
+});
+
+test('API inclusive end timestamps become continuous exclusive intervals', () => {
+  const feed = parseElectricityApi({ prices: [
+    { startDate: '2026-11-17T10:00:00Z', endDate: '2026-11-17T10:14:59.999Z', price: 5 },
+    { startDate: '2026-11-17T10:15:00Z', endDate: '2026-11-17T10:29:59.999Z', price: 6 },
+  ] }, new Date('2026-11-17T10:14:59.999Z'));
+  assert.equal(getCurrentInterval(feed.intervals, '2026-11-17T10:14:59.999Z').value, 5);
+  assert.equal(getCurrentInterval(feed.intervals, '2026-11-17T10:15:00Z').value, 6);
 });

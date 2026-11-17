@@ -11,7 +11,7 @@ export function normalizeElectricityData(entries = []) {
 export function getCurrentInterval(intervals = [], currentDate = new Date()) {
   const normalized = normalizeElectricityData(intervals);
   const now = new Date(currentDate);
-  return normalized.find((interval) => now >= interval.start && now < interval.end) || normalized[0] || null;
+  return normalized.find((interval) => now >= interval.start && now < interval.end) || null;
 }
 
 export function isCurrentElectricityInterval(interval, currentDate = new Date()) {

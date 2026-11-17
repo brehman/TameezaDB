@@ -1,16 +1,21 @@
+import { fetchElectricityFeed, selectElectricityDays } from './services/electricityFeed.js';
 import { getDailyCodeForDate } from './services/dailyCodeService.js';
-import { getAveragePrice, getCheapestInterval, getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getMostExpensiveInterval, getPriceLevel, isCurrentElectricityInterval, shouldShowTomorrowElectricity } from './services/electricityService.js';
+import { getAveragePrice, getCheapestInterval, getCurrentInterval, getElectricityBarColor, getElectricityBarHeight, getMostExpensiveInterval, getPriceLevel, isCurrentElectricityInterval } from './services/electricityService.js?v=spot-api-v2';
 import { getUpcomingCalendarEvent } from './services/scheduleService.js';
 import { fetchTransportData, getDepartureMinutesUntil, getSortedDepartures } from './services/transportService.js';
-import { fetchWeatherData, getHourlyForecastFromCurrentHour, getThemeForSunPosition, mapWeatherCode } from './services/weatherService.js?v=schedule-four-calendars';
+import { fetchWeatherData, getHourlyForecastFromCurrentHour, getThemeForSunPosition, mapWeatherCode } from './services/weatherService.js?v=yodeck-svg-schedule-refresh';
 import { formatCountdown, formatDateLong, formatHHMM, formatHHMMSS, formatPrice, parseHHMM } from './utils/time.js';
 
 const state = {
   config: null,
   weather: null,
   electricity: null,
+  electricityRefreshAt: 0,
+  liveRefreshRunning: false,
   transport: null,
   schedules: [],
+  scheduleUpdating: false,
+  scheduleStatus: '',
   selectedScheduleDate: '',
   dailyCodes: [],
   selectedDailyQuote: '',
@@ -34,6 +39,25 @@ async function loadSchedules() {
     name,
     days: calendar.children[name] || {},
   }));
+}
+
+async function updateSchedulesFromIcs() {
+  if (state.scheduleUpdating) return;
+  state.scheduleUpdating = true;
+  state.scheduleStatus = 'Updating schedules...';
+  renderSchedulePage();
+  try {
+    const { fetchIcsSchedules } = await import('./utils/ics.js');
+    const schedules = await fetchIcsSchedules();
+    state.schedules = schedules;
+    state.scheduleStatus = 'Schedules updated from ICS files.';
+  } catch (error) {
+    console.warn('Schedule update failed.', error);
+    state.scheduleStatus = 'Update failed. Previous schedules kept. Please try again.';
+  } finally {
+    state.scheduleUpdating = false;
+    renderAll();
+  }
 }
 
 function getHelsinkiDateKey(date = new Date()) {
@@ -109,7 +133,7 @@ function renderElectricityChart(intervals, compact = false, split = false, curre
     const color = getElectricityBarColor(value);
     const startTime = new Date(interval.start);
     const [hour, minute] = startTime.toLocaleTimeString('en-GB', { timeZone: 'Europe/Helsinki', hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
-    const label = minute === '00' ? hour : '';
+    const label = minute === '00' && Number(hour) % (intervals.length > 48 ? 3 : 1) === 0 ? hour : '';
     const isCurrent = isCurrentElectricityInterval(interval, currentDate);
     const currentPrice = isCurrent ? ` data-current-price="${value.toFixed(1)}¢" aria-label="Current price ${value.toFixed(1)} cents per kilowatt-hour"` : '';
     return `<div class="chart-bar-wrap${isCurrent ? ' is-current-hour' : ''}"${currentPrice}><div class="chart-bar ${color}" style="height:${height}%"></div><span>${label}</span></div>`;
@@ -117,6 +141,13 @@ function renderElectricityChart(intervals, compact = false, split = false, curre
 
   const chartSize = compact ? ' electricity-chart--compact' : split ? ' electricity-chart--split' : '';
   return `<div class="electricity-chart${chartSize}">${yAxis}<div class="chart-bars">${gridLines}${bars}</div></div>`;
+}
+
+function electricityFeedStatus(current) {
+  const fetchedAt = state.electricity?.fetchedAt;
+  const updated = fetchedAt && Number.isFinite(new Date(fetchedAt).getTime())
+    ? new Date(fetchedAt).toLocaleString('en-GB', { timeZone: 'Europe/Helsinki', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'unknown';
+  return `${current ? '15-min spot • VAT included • excludes supplier margin and grid fees' : 'Price unavailable / outdated'} · Fetched ${updated} · Porssisahko.net`;
 }
 
 function renderSummaryPage() {
@@ -139,17 +170,16 @@ function renderSummaryPage() {
     `;
   }).join('');
 
-  const chartIntervals = state.electricity?.intervals || [];
-  const currentInterval = getCurrentInterval(state.electricity?.intervals || [], new Date());
-  const priceValue = currentInterval ? currentInterval.value : 0;
+  const electricity = selectElectricityDays(state.electricity || {});
+  const chartIntervals = electricity.intervals;
+  const currentInterval = getCurrentInterval(chartIntervals, new Date());
+  const priceValue = currentInterval ? currentInterval.value : null;
   const avgPrice = getAveragePrice(chartIntervals);
   const cheapest = getCheapestInterval(chartIntervals);
   const expensive = getMostExpensiveInterval(chartIntervals);
-  const priceLevel = getPriceLevel(priceValue);
+  const priceLevel = currentInterval ? getPriceLevel(priceValue) : 'Unavailable';
 
-  const displayPrice = priceValue.toFixed(1);
-  const vatMultiplier = 1 + (state.config.electricity.vatPercent || 0) / 100;
-  const priceIncludingVat = (priceValue * vatMultiplier).toFixed(1);
+  const displayPrice = currentInterval ? priceValue.toFixed(2) : '--';
 
   const electricityChart = renderElectricityChart(chartIntervals, true);
 
@@ -181,10 +211,10 @@ function renderSummaryPage() {
       <span class="tag price-level-${priceLevel.replaceAll(' ', '-')}">${priceLevel}</span>
     </div>
     <div class="big-price">${displayPrice} c/kWh</div>
-    <div class="subtle-line">Incl. VAT ${priceIncludingVat} c/kWh</div>
+    <div class="subtle-line">${electricityFeedStatus(currentInterval)}</div>
     <div class="chart-period-label">Today prices</div>
     <div class="stat-grid">
-      <div><label>Average</label><strong>${avgPrice.toFixed(1)}</strong></div>
+      <div><label>Average</label><strong>${chartIntervals.length ? avgPrice.toFixed(2) : '--'}</strong></div>
       <div><label>Cheapest</label><strong>${cheapest ? cheapest.value.toFixed(1) : '--'}</strong></div>
       <div><label>Most expensive</label><strong>${expensive ? expensive.value.toFixed(1) : '--'}</strong></div>
     </div>
@@ -206,7 +236,7 @@ function renderSummaryPage() {
   `;
 
   const todayKey = getHelsinkiDateKey();
-  const scheduleCards = state.schedules.map((child) => {
+  const scheduleCards = state.schedules.filter((child) => child.name !== 'TC').map((child) => {
     const events = child.days[todayKey] || [];
     const firstStart = events[0]?.start || '—';
     const lastEnd = events.at(-1)?.end || '—';
@@ -242,15 +272,16 @@ function renderSummaryPage() {
 }
 
 function renderElectricityPage() {
-  const todayIntervals = state.electricity?.intervals || [];
-  const tomorrowIntervals = state.electricity?.tomorrowIntervals || [];
-  const showTomorrow = shouldShowTomorrowElectricity(state.electricity || {}, new Date());
-  const current = getCurrentInterval(state.electricity?.intervals || [], new Date());
+  const electricity = selectElectricityDays(state.electricity || {});
+  const todayIntervals = electricity.intervals;
+  const tomorrowIntervals = electricity.tomorrowIntervals;
+  const showTomorrow = tomorrowIntervals.length > 0;
+  const current = getCurrentInterval(todayIntervals, new Date());
   const renderPeriod = (label, intervals) => `
     <section class="electricity-period">
       <h3>${label}</h3>
       <div class="stats-row">
-        <div class="stat-box"><span>Average</span><strong>${getAveragePrice(intervals).toFixed(1)} c/kWh</strong></div>
+        <div class="stat-box"><span>Average</span><strong>${intervals.length ? getAveragePrice(intervals).toFixed(2) : '--'} c/kWh</strong></div>
         <div class="stat-box"><span>Cheapest</span><strong>${getCheapestInterval(intervals)?.value.toFixed(1) ?? '--'} c/kWh</strong></div>
         <div class="stat-box"><span>Most expensive</span><strong>${getMostExpensiveInterval(intervals)?.value.toFixed(1) ?? '--'} c/kWh</strong></div>
       </div>
@@ -261,8 +292,9 @@ function renderElectricityPage() {
   document.getElementById('electricity-page').innerHTML = `
     <div class="page-header">
       <h2>Electricity</h2>
-      <p>Finland price zone • current ${current ? current.value.toFixed(1) : '--'} c/kWh</p>
+      <p>Finland price zone • current ${current ? current.value.toFixed(2) : '--'} c/kWh</p>
     </div>
+    <p class="subtle-line">${electricityFeedStatus(current)}</p>
     <div class="electricity-period-grid${showTomorrow ? ' electricity-period-grid--both' : ''}">
       ${renderPeriod('Today', todayIntervals)}
       ${showTomorrow ? renderPeriod('Tomorrow', tomorrowIntervals) : ''}
@@ -305,7 +337,7 @@ function renderWeatherPage() {
             <h3>Weather this week</h3>
             <p>${current?.description?.label || 'Forecast'} · ${Math.round(current?.temperature ?? 0)}° now</p>
           </div>
-          <span class="weather-icon">${current?.description?.icon || '🌤️'}</span>
+          <span class="weather-icon">${current?.description?.icon || mapWeatherCode(1).icon}</span>
         </div>
         <div class="weekly-weather-grid">${weeklyTiles}</div>
       </div>
@@ -337,10 +369,15 @@ function renderSchedulePage() {
   document.getElementById('schedule-page').innerHTML = `
     <div class="page-header">
       <h2>Schedule</h2>
-      <label class="schedule-date-control">Date <input id="schedule-date" type="date" value="${date}"></label>
+      <div class="schedule-actions">
+        <label class="schedule-date-control">Date <input id="schedule-date" type="date" value="${date}"></label>
+        <button id="update-schedules" type="button" class="nav-btn" ${state.scheduleUpdating ? 'disabled' : ''}>${state.scheduleUpdating ? 'Updating...' : 'Update schedules'}</button>
+      </div>
     </div>
+    <p class="schedule-status" role="status" aria-live="polite">${state.scheduleStatus}</p>
     <div class="timeline-grid">${cards}</div>
   `;
+  document.getElementById('update-schedules').addEventListener('click', updateSchedulesFromIcs);
   document.getElementById('schedule-date').addEventListener('change', (event) => {
     if (!event.target.value) return;
     state.selectedScheduleDate = event.target.value;
@@ -407,22 +444,20 @@ function renderAll() {
 }
 
 async function refreshLiveData() {
+  if (state.liveRefreshRunning) return;
+  state.liveRefreshRunning = true;
   try {
-    const electricityData = await fetchJSON('./data/electricity/fi-prices.json', { cache: 'no-store' });
-    if (electricityData?.intervals?.length) {
-      state.electricity = electricityData;
+    const interval = (state.config.refreshIntervals.electricityMinutes || 15) * 60000;
+    if (Date.now() - state.electricityRefreshAt >= interval) {
+      state.electricity = await fetchElectricityFeed(state.config.electricity.sourceUrl, state.electricity);
+      state.electricityRefreshAt = Date.now();
     }
-  } catch (error) {
-    console.warn('Electricity refresh failed; keeping cached data.', error);
-  }
-
-  try {
+    renderAll();
     state.transport = await fetchTransportData(state.config);
-  } catch (error) {
-    console.warn('Transport refresh failed; keeping cached data.', error);
+    renderAll();
+  } finally {
+    state.liveRefreshRunning = false;
   }
-
-  renderAll();
 }
 
 function startRotation() {
@@ -479,7 +514,8 @@ async function initializeDashboard() {
   state.selectedScheduleDate = getHelsinkiDateKey();
   state.schedules = await loadSchedules();
   state.weather = await fetchWeatherData(state.config.location.latitude, state.config.location.longitude).catch(() => null);
-  state.electricity = await fetchJSON(state.config.electricity.sourceUrl, { cache: 'no-store' }).catch(() => ({ intervals: [] }));
+  state.electricity = await fetchElectricityFeed(state.config.electricity.sourceUrl);
+  state.electricityRefreshAt = Date.now();
   state.transport = await fetchTransportData(state.config).catch(() => ({ routes: [] }));
 
   const dailyQuotesText = await fetch('./data/daily-quotes.txt').then((response) => response.text()).catch(() => 'Keep going. Small steps still move you forward.');
@@ -489,7 +525,15 @@ async function initializeDashboard() {
 
   document.addEventListener('keydown', handleKeydown);
   updateClock();
-  setInterval(updateClock, 1000);
+  setInterval(() => {
+    updateClock();
+    const minute = Math.floor(Date.now() / 60000);
+    if (state.electricityRenderMinute !== minute) {
+      state.electricityRenderMinute = minute;
+      renderSummaryPage();
+      renderElectricityPage();
+    }
+  }, 1000);
   setInterval(() => {
     refreshLiveData();
   }, 30000);
