@@ -78,6 +78,6 @@ npm test
 
 - Add a future local configuration editor for family schedules.
 
-The Schedule page's **Update schedules** button fetches the latest deployed U, N, S, and TC ICS files without using cached responses and rebuilds the displayed calendars in the browser. Push changed ICS files and wait for deployment before pressing it. The refresh applies to this open dashboard; it does not write back to the repository. Failed updates preserve the previous calendars. Reloading the page uses the generated calendar JSON again.
+The Schedule page's **Update schedules** button fetches the latest deployed U, N, S, and TC ICS files without using cached responses and rebuilds the displayed calendars in the browser. Push changed ICS files and wait for deployment before pressing it. The refresh applies to this open dashboard; it does not write back to the repository. Failed updates preserve the previous calendars. Every page load automatically fetches and expands all four ICS files through the same loader, including S. The generated calendar JSON is used only if loading the ICS files fails.
 
 Weather and home icons use lightweight SVG shapes instead of emoji, so signage players do not need emoji fonts.

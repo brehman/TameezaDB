@@ -34,11 +34,24 @@ const state = {
 }
 
 async function loadSchedules() {
-  const calendar = await fetchJSON('./data/schedules/calendar.json');
-  return ['U', 'N', 'S', 'TC'].map((name) => ({
-    name,
-    days: calendar.children[name] || {},
-  }));
+  try {
+    const { fetchIcsSchedules } = await import('./utils/ics.js');
+    return await fetchIcsSchedules();
+  } catch (error) {
+    console.warn('Unable to load ICS files; using generated schedules.', error);
+    state.scheduleStatus = 'Using saved schedules. Update schedules to retry loading ICS files.';
+    try {
+      const calendar = await fetchJSON('./data/schedules/calendar.json', { cache: 'no-store' });
+      return ['U', 'N', 'S', 'TC'].map((name) => ({
+        name,
+        days: calendar.children[name] || {},
+      }));
+    } catch (fallbackError) {
+      console.warn('Saved schedules unavailable.', fallbackError);
+      state.scheduleStatus = 'Schedules unavailable. Update schedules to retry.';
+      return ['U', 'N', 'S', 'TC'].map((name) => ({ name, days: {} }));
+    }
+  }
 }
 
 async function updateSchedulesFromIcs() {
